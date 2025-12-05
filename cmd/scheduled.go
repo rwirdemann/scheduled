@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rwirdemann/nestiles/panel"
+	"github.com/rwirdemann/scheduled"
+	"github.com/rwirdemann/scheduled/file"
 )
 
 const (
@@ -31,11 +34,16 @@ var days = map[int]string{
 	Sunday:    "Sunday",
 }
 
+type repository interface {
+	Load() []scheduled.Task
+}
+
 type model struct {
 	root  panel.Model
 	focus int
 
-	lists map[int]list.Model
+	lists      map[int]*list.Model
+	repository repository
 }
 
 func (m model) Init() tea.Cmd {
@@ -67,8 +75,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// find focused pane and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
-		if _, exists := m.lists[focusedPanel.ID]; exists {
-			m.lists[focusedPanel.ID], cmd = m.lists[focusedPanel.ID].Update(msg)
+		if list, exists := m.lists[focusedPanel.ID]; exists {
+			*list, cmd = list.Update(msg)
 		}
 		cmds = append(cmds, cmd)
 	}
@@ -84,15 +92,32 @@ func (m model) moveTask(from, to int) model {
 		return m
 	}
 
-	fromList := m.lists[from]
-	toList := m.lists[to]
-	if t := fromList.SelectedItem(); t != nil {
-		fromList.RemoveItem(fromList.Index())
-		toList.InsertItem(0, t)
-		m.lists[from] = fromList
-		m.lists[to] = toList
+	if t := m.lists[from].SelectedItem(); t != nil {
+		m.lists[from].RemoveItem(m.lists[from].Index())
+		m.lists[to].InsertItem(0, t)
 	}
 	return m
+}
+
+func (m model) loadTasks() {
+	var tasksByDay = make(map[int][]list.Item)
+	tasks := m.repository.Load()
+	for _, task := range tasks {
+		tasksByDay[task.Day] = append(tasksByDay[task.Day], task)
+	}
+
+	// Sort tasks by their Pos field
+	for _, items := range tasksByDay {
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].(scheduled.Task).Pos < items[j].(scheduled.Task).Pos
+		})
+	}
+
+	for day := range m.lists {
+		for i, item := range tasksByDay[day] {
+			m.lists[day].InsertItem(i, item)
+		}
+	}
 }
 
 func (m model) View() string {
@@ -128,29 +153,16 @@ func main() {
 		Append(row1).
 		Append(row2)
 
-	inboxItems := []list.Item{
-		Task{Name: "Book Surf Course", Desc: "Wingfoil prefered"},
-		Task{Name: "Rent Equipment", Desc: "Gong or Armstrong"},
-	}
-
-	mondayItems := []list.Item{
-		Task{Name: "Flug buch", Desc: "Möglichst bei Condor"},
-		Task{Name: "Auto mieten", Desc: "Bei einem lokalen Anbieter"},
-	}
-
-	m := model{root: rootPanel, lists: make(map[int]list.Model)}
-	inbox := list.New(inboxItems, list.NewDefaultDelegate(), 0, 0)
-	inbox.Title = "Inbox"
-	m.lists[0] = inbox
-	monday := list.New(mondayItems, list.NewDefaultDelegate(), 0, 0)
-	monday.Title = "Monday"
-	m.lists[1] = monday
-
-	for i := 2; i <= Sunday; i++ {
-		l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	m := model{root: rootPanel, lists: make(map[int]*list.Model), repository: file.Repository{}}
+	defaultDelegate := list.NewDefaultDelegate()
+	defaultDelegate.ShowDescription = false
+	defaultDelegate.SetSpacing(0)
+	for i := Inbox; i <= Sunday; i++ {
+		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
 		l.Title = days[i]
-		m.lists[i] = l
+		m.lists[i] = &l
 	}
+	m.loadTasks()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
@@ -158,15 +170,3 @@ func main() {
 		os.Exit(1)
 	}
 }
-
-type Task struct {
-	Name string `json:"name"`
-	Desc string `json:"description"`
-	Day  int    `json:"day"`
-	Done bool   `json:"done"`
-	Pos  int    `json:"pos"`
-}
-
-func (i Task) Title() string       { return i.Name }
-func (i Task) Description() string { return i.Desc }
-func (i Task) FilterValue() string { return i.Name }
