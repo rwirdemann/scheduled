@@ -36,6 +36,7 @@ var days = map[int]string{
 
 type repository interface {
 	Load() []scheduled.Task
+	Save(tasks []scheduled.Task)
 }
 
 type model struct {
@@ -59,6 +60,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl-c", "q":
+			m.saveTasks()
 			return m, tea.Quit
 		case "shift+right":
 			if focusedPanel, exists := m.root.Focused(); exists {
@@ -120,6 +122,18 @@ func (m model) loadTasks() {
 	}
 }
 
+func (m model) saveTasks() {
+	var tasks []scheduled.Task
+	for _, list := range m.lists {
+		for i, item := range list.Items() {
+			t := item.(scheduled.Task)
+			t.Pos = i
+			tasks = append(tasks, t)
+		}
+	}
+	m.repository.Save(tasks)
+}
+
 func (m model) View() string {
 	return m.root.View(m)
 }
@@ -159,6 +173,7 @@ func main() {
 	defaultDelegate.SetSpacing(0)
 	for i := Inbox; i <= Sunday; i++ {
 		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
+		l.SetShowStatusBar(false)
 		l.Title = days[i]
 		m.lists[i] = &l
 	}

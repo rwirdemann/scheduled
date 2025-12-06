@@ -42,3 +42,21 @@ func (t Repository) Load() []scheduled.Task {
 
 	return tasks.Tasks
 }
+func (t Repository) Save(tasks []scheduled.Task) {
+	file, err := os.Create(path.Join(base, "tasks.json"))
+	if err != nil {
+		log.Fatalf("Failed to create tasks.json: %v", err)
+	}
+	defer file.Close()
+
+	data := struct {
+		Tasks []scheduled.Task `json:"tasks"`
+	}{
+		Tasks: tasks,
+	}
+
+	encoder := json.NewEncoder(file)
+	if err := encoder.Encode(data); err != nil {
+		log.Fatalf("Failed to encode tasks to tasks.json: %v", err)
+	}
+}
