@@ -98,7 +98,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "backspace":
 			if focusedPanel, exists := m.root.Focused(); exists {
-				m.lists[focusedPanel.ID].RemoveItem(m.lists[focusedPanel.ID].Index())
+				if focusedPanel.ID != panelEdit {
+					m.lists[focusedPanel.ID].RemoveItem(m.lists[focusedPanel.ID].Index())
+				}
 			}
 		case "enter":
 			value := m.textInput.Value()
