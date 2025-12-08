@@ -100,12 +100,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.setWeek(52), nil
 			}
 		case "shift+right":
-			if focusedPanel, exists := m.root.Focused(); exists {
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, focusedPanel.ID+1)
 			}
 		case "shift+left":
-			if focusedPanel, exists := m.root.Focused(); exists {
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, focusedPanel.ID-1)
+			}
+		case "shift+up", "shift+down":
+			focusedPanel, _ := m.root.Focused()
+			if l, exsits := m.lists[focusedPanel.ID]; exsits {
+				selected := l.SelectedItem()
+				if selected != nil {
+					t := selected.(scheduled.Task)
+					if msg.String() == "shift+up" && l.Index() > 0 {
+						l.RemoveItem(l.Index())
+						l.InsertItem(l.Index()-1, t)
+						l.Select(l.Index() - 1)
+					}
+					if msg.String() == "shift+down" && l.Index() < len(l.Items())-1 {
+						l.RemoveItem(l.Index())
+						l.InsertItem(l.Index()+1, t)
+						l.Select(l.Index() + 1)
+					}
+				}
 			}
 		case "n":
 			m.root = m.root.SetFocus(panelEdit)
@@ -117,10 +135,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textInput.Blur()
 			return m, nil
 		case "backspace":
-			if focusedPanel, exists := m.root.Focused(); exists {
-				if focusedPanel.ID != panelEdit {
-					m.lists[focusedPanel.ID].RemoveItem(m.lists[focusedPanel.ID].Index())
-				}
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+				m.lists[focusedPanel.ID].RemoveItem(m.lists[focusedPanel.ID].Index())
 			}
 		case "enter":
 			value := m.textInput.Value()
