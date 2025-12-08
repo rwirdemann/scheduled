@@ -5,12 +5,14 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
+	"github.com/rwirdemann/scheduled/date"
 	"github.com/rwirdemann/scheduled/file"
 )
 
@@ -46,6 +48,7 @@ type repository interface {
 type model struct {
 	root  panel.Model
 	focus int
+	week  int
 
 	lists      map[int]*list.Model
 	textInput  textinput.Model
@@ -84,6 +87,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl-c", "q":
 			m.saveTasks()
 			return m, tea.Quit
+		case "right":
+			if m.week < 52 {
+				return m.setWeek(m.week + 1), nil
+			} else {
+				return m.setWeek(1), nil
+			}
+		case "left":
+			if m.week > 1 {
+				return m.setWeek(m.week - 1), nil
+			} else {
+				return m.setWeek(52), nil
+			}
 		case "shift+right":
 			if focusedPanel, exists := m.root.Focused(); exists {
 				m = m.moveTask(focusedPanel.ID, focusedPanel.ID+1)
@@ -184,6 +199,20 @@ func (m model) View() string {
 	return m.root.View(m)
 }
 
+func (m model) setWeek(week int) model {
+	m.week = week
+	for i := Inbox; i <= Sunday; i++ {
+		monday := date.GetMondayOfWeek(m.week)
+		if i == Inbox {
+			m.lists[i].Title = fmt.Sprintf("Inbox (Week %d)", m.week)
+		} else {
+			day := monday.AddDate(0, 0, i)
+			m.lists[i].Title = fmt.Sprintf("%s (%s)", days[i], day.Format("02.01.2006"))
+		}
+	}
+	return m
+}
+
 func renderPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
 	if panelID == 40 {
@@ -231,9 +260,10 @@ func main() {
 	for i := Inbox; i <= Sunday; i++ {
 		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
 		l.SetShowStatusBar(false)
-		l.Title = days[i]
 		m.lists[i] = &l
 	}
+	_, w := time.Now().ISOWeek()
+	m = m.setWeek(w)
 	m.loadTasks()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
