@@ -45,14 +45,32 @@ type repository interface {
 	Save(tasks []scheduled.Task)
 }
 
+type listModel struct {
+	list.Model
+	savedIndex int
+}
+
+func (lm *listModel) SaveIndex() {
+	lm.savedIndex = lm.Index()
+}
+
+func (lm *listModel) RestoreIndex() {
+	lm.Select(lm.savedIndex)
+}
+
+func (lm *listModel) Deselect() {
+	lm.Select(-1)
+}
+
 type model struct {
 	root  panel.Model
 	focus int
 	week  int
 
-	lists      map[int]*list.Model
+	lists      map[int]*listModel
 	textInput  textinput.Model
 	repository repository
+	lastFocus  int
 }
 
 func (m model) Init() tea.Cmd {
@@ -152,8 +170,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// find focused pane and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
+		// Handle focus changes
+		if m.lastFocus != focusedPanel.ID && focusedPanel.ID != panelEdit {
+			// Save index and deselect previously focused list
+			if prevList, exists := m.lists[m.lastFocus]; exists {
+				prevList.SaveIndex()
+				prevList.Deselect()
+			}
+			// Restore index of newly focused list
+			if currList, exists := m.lists[focusedPanel.ID]; exists {
+				currList.RestoreIndex()
+			}
+			m.lastFocus = focusedPanel.ID
+		}
+
 		if list, exists := m.lists[focusedPanel.ID]; exists {
-			*list, cmd = list.Update(msg)
+			list.Model, cmd = list.Model.Update(msg)
 		}
 		cmds = append(cmds, cmd)
 	}
@@ -235,8 +267,8 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 		return model.textInput.View()
 	}
 	if list, exists := model.lists[panelID]; exists {
-		list.SetSize(w, h)
-		return list.View()
+		list.Model.SetSize(w, h)
+		return list.Model.View()
 	}
 	return ""
 }
@@ -266,9 +298,10 @@ func main() {
 	ti := textinput.New()
 	ti.Placeholder = "Edit or update task"
 	ti.Width = 80
-	m := model{root: rootPanel, lists: make(map[int]*list.Model),
+	m := model{root: rootPanel, lists: make(map[int]*listModel),
 		repository: file.Repository{},
 		textInput:  ti,
+		lastFocus:  Inbox,
 	}
 	defaultDelegate := list.NewDefaultDelegate()
 	defaultDelegate.ShowDescription = false
@@ -276,11 +309,18 @@ func main() {
 	for i := Inbox; i <= Sunday; i++ {
 		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
 		l.SetShowStatusBar(false)
-		m.lists[i] = &l
+		m.lists[i] = &listModel{Model: l, savedIndex: 0}
 	}
 	_, w := time.Now().ISOWeek()
 	m = m.setWeek(w)
 	m.loadTasks()
+
+	// Deselect all lists except the focused one (Inbox)
+	for i := Inbox; i <= Sunday; i++ {
+		if i != Inbox {
+			m.lists[i].Deselect()
+		}
+	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
