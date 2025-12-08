@@ -17,6 +17,12 @@ func init() {
 		log.Fatal(err)
 	}
 	base = home + "/.scheduled/"
+
+	// make sure directory exists
+	err = os.MkdirAll(base, 0755)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 type Repository struct {

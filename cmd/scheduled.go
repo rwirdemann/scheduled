@@ -147,7 +147,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl-c", "q":
-			m.saveTasks()
 			return m, tea.Quit
 		case "right":
 			if m.week < 52 {
@@ -190,7 +189,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "backspace":
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.lists[focusedPanel.ID].RemoveItem(m.lists[focusedPanel.ID].Index())
+				l := m.lists[focusedPanel.ID]
+				selected := l.SelectedItem()
+				t := selected.(scheduled.Task)
+				if t.Done {
+					l.RemoveItem(l.Index())
+				}
 			}
 		case " ":
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
@@ -286,6 +290,7 @@ func (m model) saveTasks() {
 }
 
 func (m model) View() string {
+	m.saveTasks()
 	return m.root.View(m)
 }
 
