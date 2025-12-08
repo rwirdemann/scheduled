@@ -92,6 +92,20 @@ func (lm *listModel) MoveItemDown() bool {
 	return true
 }
 
+func (lm *listModel) ToggleDone() bool {
+	selected := lm.SelectedItem()
+	if selected == nil {
+		return false
+	}
+	t := selected.(scheduled.Task)
+	t.Done = !t.Done
+	idx := lm.Index()
+	lm.RemoveItem(idx)
+	lm.InsertItem(idx, t)
+	lm.Select(idx)
+	return true
+}
+
 type model struct {
 	root  panel.Model
 	focus int
@@ -177,6 +191,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "backspace":
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m.lists[focusedPanel.ID].RemoveItem(m.lists[focusedPanel.ID].Index())
+			}
+		case " ":
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+				if l, exists := m.lists[focusedPanel.ID]; exists {
+					l.ToggleDone()
+				}
 			}
 		case "enter":
 			value := m.textInput.Value()
