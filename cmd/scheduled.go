@@ -62,6 +62,36 @@ func (lm *listModel) Deselect() {
 	lm.Select(-1)
 }
 
+func (lm *listModel) MoveItemUp() bool {
+	if lm.Index() <= 0 {
+		return false
+	}
+	selected := lm.SelectedItem()
+	if selected == nil {
+		return false
+	}
+	t := selected.(scheduled.Task)
+	lm.RemoveItem(lm.Index())
+	lm.InsertItem(lm.Index()-1, t)
+	lm.Select(lm.Index() - 1)
+	return true
+}
+
+func (lm *listModel) MoveItemDown() bool {
+	if lm.Index() < 0 || lm.Index() >= len(lm.Items())-1 {
+		return false
+	}
+	selected := lm.SelectedItem()
+	if selected == nil {
+		return false
+	}
+	t := selected.(scheduled.Task)
+	lm.RemoveItem(lm.Index())
+	lm.InsertItem(lm.Index()+1, t)
+	lm.Select(lm.Index() + 1)
+	return true
+}
+
 type model struct {
 	root  panel.Model
 	focus int
@@ -125,23 +155,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, focusedPanel.ID-1)
 			}
-		case "shift+up", "shift+down":
+		case "shift+up":
 			focusedPanel, _ := m.root.Focused()
-			if l, exsits := m.lists[focusedPanel.ID]; exsits {
-				selected := l.SelectedItem()
-				if selected != nil {
-					t := selected.(scheduled.Task)
-					if msg.String() == "shift+up" && l.Index() > 0 {
-						l.RemoveItem(l.Index())
-						l.InsertItem(l.Index()-1, t)
-						l.Select(l.Index() - 1)
-					}
-					if msg.String() == "shift+down" && l.Index() < len(l.Items())-1 {
-						l.RemoveItem(l.Index())
-						l.InsertItem(l.Index()+1, t)
-						l.Select(l.Index() + 1)
-					}
-				}
+			if l, exists := m.lists[focusedPanel.ID]; exists {
+				l.MoveItemUp()
+			}
+		case "shift+down":
+			focusedPanel, _ := m.root.Focused()
+			if l, exists := m.lists[focusedPanel.ID]; exists {
+				l.MoveItemDown()
 			}
 		case "n":
 			m.root = m.root.SetFocus(panelEdit)
@@ -205,7 +227,7 @@ func (m model) moveTask(from, to int) model {
 		t := item.(scheduled.Task)
 		t.Day = to
 		m.lists[from].RemoveItem(m.lists[from].Index())
-		m.lists[to].InsertItem(0, t)
+		m.lists[to].InsertItem(len(m.lists[to].Items()), t)
 	}
 	return m
 }
