@@ -96,6 +96,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.root = m.root.SetFocus(panelEdit)
 			m.textInput.Focus()
 			return m, nil
+		case "esc":
+			m.root = m.root.SetFocus(Inbox)
+			m.textInput.Reset()
+			m.textInput.Blur()
+			return m, nil
 		case "backspace":
 			if focusedPanel, exists := m.root.Focused(); exists {
 				if focusedPanel.ID != panelEdit {
