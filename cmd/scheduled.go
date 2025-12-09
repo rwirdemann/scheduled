@@ -7,9 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/date"
@@ -27,6 +30,7 @@ const (
 	Sunday    = 7
 
 	panelEdit = 40
+	panelHelp = 50
 )
 
 var days = map[int]string{
@@ -45,76 +49,21 @@ type repository interface {
 	Save(tasks []scheduled.Task)
 }
 
-type listModel struct {
-	list.Model
-	savedIndex int
-}
-
-func (lm *listModel) SaveIndex() {
-	lm.savedIndex = lm.Index()
-}
-
-func (lm *listModel) RestoreIndex() {
-	lm.Select(lm.savedIndex)
-}
-
-func (lm *listModel) Deselect() {
-	lm.Select(-1)
-}
-
-func (lm *listModel) MoveItemUp() bool {
-	if lm.Index() <= 0 {
-		return false
-	}
-	selected := lm.SelectedItem()
-	if selected == nil {
-		return false
-	}
-	t := selected.(scheduled.Task)
-	lm.RemoveItem(lm.Index())
-	lm.InsertItem(lm.Index()-1, t)
-	lm.Select(lm.Index() - 1)
-	return true
-}
-
-func (lm *listModel) MoveItemDown() bool {
-	if lm.Index() < 0 || lm.Index() >= len(lm.Items())-1 {
-		return false
-	}
-	selected := lm.SelectedItem()
-	if selected == nil {
-		return false
-	}
-	t := selected.(scheduled.Task)
-	lm.RemoveItem(lm.Index())
-	lm.InsertItem(lm.Index()+1, t)
-	lm.Select(lm.Index() + 1)
-	return true
-}
-
-func (lm *listModel) ToggleDone() bool {
-	selected := lm.SelectedItem()
-	if selected == nil {
-		return false
-	}
-	t := selected.(scheduled.Task)
-	t.Done = !t.Done
-	idx := lm.Index()
-	lm.RemoveItem(idx)
-	lm.InsertItem(idx, t)
-	lm.Select(idx)
-	return true
-}
-
 type model struct {
 	root  panel.Model
 	focus int
 	week  int
 
-	lists      map[int]*listModel
+	lists      map[int]*scheduled.ListModel
 	textInput  textinput.Model
 	repository repository
 	lastFocus  int
+
+	keys scheduled.KeyMap
+	help help.Model
+
+	termWidth  int
+	termHeight int
 }
 
 func (m model) Init() tea.Cmd {
@@ -144,50 +93,67 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
+		m.termHeight = msg.Height
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl-c", "q":
+		switch {
+		case key.Matches(msg, m.keys.Help):
+			m.root = m.root.Hide(panelEdit)
+			m.root = m.root.Show(panelHelp)
+			return m, nil
+		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
-		case "right":
+		case key.Matches(msg, m.keys.Right):
 			if m.week < 52 {
 				return m.setWeek(m.week + 1), nil
 			} else {
 				return m.setWeek(1), nil
 			}
-		case "left":
+		case key.Matches(msg, m.keys.Left):
 			if m.week > 1 {
 				return m.setWeek(m.week - 1), nil
 			} else {
 				return m.setWeek(52), nil
 			}
-		case "shift+right":
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m = m.moveTask(focusedPanel.ID, focusedPanel.ID+1)
-			}
-		case "shift+left":
+		case key.Matches(msg, m.keys.ShiftLeft):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, focusedPanel.ID-1)
 			}
-		case "shift+up":
+		case key.Matches(msg, m.keys.ShiftRight):
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+				m = m.moveTask(focusedPanel.ID, focusedPanel.ID+1)
+			}
+		case key.Matches(msg, m.keys.ShiftUp):
 			focusedPanel, _ := m.root.Focused()
 			if l, exists := m.lists[focusedPanel.ID]; exists {
 				l.MoveItemUp()
 			}
-		case "shift+down":
+		case key.Matches(msg, m.keys.ShiftDown):
 			focusedPanel, _ := m.root.Focused()
 			if l, exists := m.lists[focusedPanel.ID]; exists {
 				l.MoveItemDown()
 			}
-		case "n":
+		case key.Matches(msg, m.keys.New):
+			m.root = m.root.Hide(panelHelp)
+			m.root = m.root.Show(panelEdit)
 			m.root = m.root.SetFocus(panelEdit)
 			m.textInput.Focus()
 			return m, nil
-		case "esc":
+		case key.Matches(msg, m.keys.Esc):
+			m.root = m.root.Hide(panelEdit)
+			m.root = m.root.Hide(panelHelp)
 			m.root = m.root.SetFocus(Inbox)
 			m.textInput.Reset()
 			m.textInput.Blur()
 			return m, nil
-		case "backspace":
+		case key.Matches(msg, m.keys.Space):
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+				if l, exists := m.lists[focusedPanel.ID]; exists {
+					l.ToggleDone()
+				}
+			}
+		case key.Matches(msg, m.keys.Back):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				l := m.lists[focusedPanel.ID]
 				selected := l.SelectedItem()
@@ -196,13 +162,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					l.RemoveItem(l.Index())
 				}
 			}
-		case " ":
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				if l, exists := m.lists[focusedPanel.ID]; exists {
-					l.ToggleDone()
-				}
-			}
-		case "enter":
+		case key.Matches(msg, m.keys.Enter):
 			value := m.textInput.Value()
 			if len(strings.TrimSpace(value)) > 0 {
 				t := scheduled.Task{Name: value}
@@ -214,7 +174,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.root, cmd = m.root.Update(msg)
 	cmds = append(cmds, cmd)
 
-	// find focused pane and Update() its task list
+	// find focused panel and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
 		// Handle focus changes
 		if m.lastFocus != focusedPanel.ID && focusedPanel.ID != panelEdit {
@@ -291,6 +251,15 @@ func (m model) saveTasks() {
 
 func (m model) View() string {
 	m.saveTasks()
+
+	const minWidth = 120
+	const minHeight = 40
+
+	if m.termWidth < minWidth || m.termHeight < minHeight {
+		return fmt.Sprintf("\n\n  Terminal too small!\n\n  Current size: %dx%d\n  Minimum size: %dx%d\n\n  Please resize your terminal.\n",
+			m.termWidth, m.termHeight, minWidth, minHeight)
+	}
+
 	return m.root.View(m)
 }
 
@@ -320,8 +289,13 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 	return ""
 }
 
+func renderHelp(m tea.Model, panelID int, w, h int) string {
+	model := m.(model)
+	return model.help.FullHelpView(model.keys.FullHelp())
+}
+
 func main() {
-	row1 := panel.New().WithId(20).WithRatio(45).WithLayout(panel.LayoutDirectionHorizontal)
+	row1 := panel.New().WithId(20).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		if i == 0 {
@@ -330,25 +304,39 @@ func main() {
 		row1 = row1.Append(p)
 	}
 
-	row2 := panel.New().WithId(30).WithRatio(45).WithLayout(panel.LayoutDirectionHorizontal)
+	row2 := panel.New().WithId(30).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := 4; i < 8; i++ {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		row2 = row2.Append(p)
 	}
-	row3 := panel.New().WithId(panelEdit).WithRatio(10).WithContent(renderPanel).WithBorder()
+	row3 := panel.New().WithId(panelEdit).WithRatio(16).WithContent(renderPanel).WithBorder().WithVisible(false)
+	helpPanel := panel.New().WithId(panelHelp).WithRatio(16).WithContent(renderHelp).WithBorder().WithVisible(true)
 
 	rootPanel := panel.New().WithId(10).WithRatio(100).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
 		Append(row2).
-		Append(row3)
+		Append(row3).
+		Append(helpPanel)
 
 	ti := textinput.New()
-	ti.Placeholder = "Edit or update task"
+	ti.Placeholder = "Edit or update task (enter to submit, esc to cancel)"
 	ti.Width = 80
-	m := model{root: rootPanel, lists: make(map[int]*listModel),
+
+	h := help.New()
+	h.Styles.FullKey = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205"))
+	h.Styles.FullDesc = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+	h.Styles.FullSeparator = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+
+	m := model{root: rootPanel, lists: make(map[int]*scheduled.ListModel),
 		repository: file.Repository{},
 		textInput:  ti,
 		lastFocus:  Inbox,
+		keys:       scheduled.Keys,
+		help:       h,
 	}
 	defaultDelegate := list.NewDefaultDelegate()
 	defaultDelegate.ShowDescription = false
@@ -356,7 +344,8 @@ func main() {
 	for i := Inbox; i <= Sunday; i++ {
 		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
 		l.SetShowStatusBar(false)
-		m.lists[i] = &listModel{Model: l, savedIndex: 0}
+		l.SetShowHelp(false)
+		m.lists[i] = scheduled.NewListModel(l)
 	}
 	_, w := time.Now().ISOWeek()
 	m = m.setWeek(w)
