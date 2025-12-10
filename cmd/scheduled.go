@@ -33,6 +33,14 @@ const (
 	panelHelp = 50
 )
 
+type mode int
+
+const (
+	modeNormal mode = iota
+	editMode
+	newMode
+)
+
 var days = map[int]string{
 	Inbox:     "Inbox",
 	Monday:    "Monday",
@@ -70,6 +78,29 @@ type model struct {
 	editingPanelID int // panel id that contains item currently edited
 	editingIndex   int // index of item being currently edited
 	isEditing      bool
+
+	mode mode
+}
+
+func newModel(root panel.Model) model {
+	ti := textinput.New()
+	ti.Placeholder = "Edit or update task (enter to submit, esc to cancel)"
+	ti.Width = 80
+
+	h := help.New()
+	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	h.Styles.FullSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	m := model{root: root, lists: make(map[int]*scheduled.ListModel),
+		repository: file.Repository{},
+		textInput:  ti,
+		lastFocus:  Inbox,
+		keys:       scheduled.Keys,
+		help:       h,
+		showHelp:   true,
+		mode:       modeNormal,
+	}
+	return m
 }
 
 func (m model) Init() tea.Cmd {
@@ -371,27 +402,7 @@ func main() {
 		Append(row3).
 		Append(helpPanel)
 
-	ti := textinput.New()
-	ti.Placeholder = "Edit or update task (enter to submit, esc to cancel)"
-	ti.Width = 80
-
-	h := help.New()
-	h.Styles.FullKey = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205"))
-	h.Styles.FullDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-	h.Styles.FullSeparator = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-
-	m := model{root: rootPanel, lists: make(map[int]*scheduled.ListModel),
-		repository: file.Repository{},
-		textInput:  ti,
-		lastFocus:  Inbox,
-		keys:       scheduled.Keys,
-		help:       h,
-		showHelp:   true,
-	}
+	m := newModel(rootPanel)
 	defaultDelegate := list.NewDefaultDelegate()
 	defaultDelegate.ShowDescription = false
 	defaultDelegate.SetSpacing(0)
