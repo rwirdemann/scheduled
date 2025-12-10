@@ -22,4 +22,4 @@ macos-option-as-alt = true
 
 ### Feature: Task Popup
 
-Hitting <enter> on a task opens a task popup with title and decription field. The popup allows to edit the tasks title and its description. Esc quits the popup without saving, save updates the task in the underlying repository. The implementation shoud use this (Bubble)[https://github.com/rmhubbert/bubbletea-overlay]q
+Hitting <enter> on a task opens a task popup with title and decription field. The popup allows to edit the tasks title and its description. Esc quits the popup without saving, save updates the task in the underlying repository. The implementation shoud use this (Bubble)[https://github.com/rmhubbert/bubbletea-overlay]

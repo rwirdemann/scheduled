@@ -59,11 +59,17 @@ type model struct {
 	repository repository
 	lastFocus  int
 
-	keys scheduled.KeyMap
-	help help.Model
+	showHelp bool
+	keys     scheduled.KeyMap
+	help     help.Model
 
 	termWidth  int
 	termHeight int
+
+	// editing state
+	editingPanelID int // panel id that contains item currently edited
+	editingIndex   int // index of item being currently edited
+	isEditing      bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -74,20 +80,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
-	if focusedPanel, exists := m.root.Focused(); exists {
-		if focusedPanel.ID == panelEdit {
-			m.textInput, cmd = m.textInput.Update(msg)
-			switch msg := msg.(type) {
-			case tea.KeyMsg:
-				switch msg.String() {
-				case "enter":
-					value := m.textInput.Value()
-					if len(strings.TrimSpace(value)) > 0 {
+	if focusedPanel, _ := m.root.Focused(); focusedPanel.ID == panelEdit {
+		m.textInput, cmd = m.textInput.Update(msg)
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch {
+			case key.Matches(msg, m.keys.Enter):
+				value := m.textInput.Value()
+				if len(strings.TrimSpace(value)) > 0 {
+					if m.isEditing {
+						// Update existing task
+						l := m.lists[m.editingPanelID]
+						if item := l.Items()[m.editingIndex]; item != nil {
+							t := item.(scheduled.Task)
+							t.Name = value
+							l.RemoveItem(m.editingIndex)
+							l.InsertItem(m.editingIndex, t)
+						}
+						m.isEditing = false
+					} else {
+						// Create new task
+						l := m.lists[m.lastFocus]
 						t := scheduled.Task{Name: value}
-						m.lists[0].InsertItem(0, t)
+						l.InsertItem(len(l.Items()), t)
 					}
-					m.textInput.Reset()
 				}
+				m.textInput.Reset()
+				m.textInput.Blur()
+				m.root = m.root.Hide(panelEdit)
+				if m.showHelp {
+					m.root = m.root.Show(panelHelp)
+				}
+				m.root = m.root.SetFocus(m.lastFocus)
+				return m, nil
 			}
 		}
 	}
@@ -100,7 +125,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.Help):
 			m.root = m.root.Hide(panelEdit)
-			m.root = m.root.Show(panelHelp)
+			m.showHelp = !m.showHelp
+			if m.showHelp {
+				m.root = m.root.Show(panelHelp)
+			} else {
+				m.root = m.root.Hide(panelHelp)
+			}
 			return m, nil
 		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
@@ -142,10 +172,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Esc):
 			m.root = m.root.Hide(panelEdit)
-			m.root = m.root.Hide(panelHelp)
 			m.root = m.root.SetFocus(Inbox)
 			m.textInput.Reset()
 			m.textInput.Blur()
+			m.isEditing = false
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
@@ -163,12 +193,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.keys.Enter):
-			value := m.textInput.Value()
-			if len(strings.TrimSpace(value)) > 0 {
-				t := scheduled.Task{Name: value}
-				m.lists[0].InsertItem(0, t)
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+				// Open edit panel with selected task
+				if l, exists := m.lists[focusedPanel.ID]; exists {
+					if selected := l.SelectedItem(); selected != nil {
+						t := selected.(scheduled.Task)
+						m.isEditing = true
+						m.editingPanelID = focusedPanel.ID
+						m.editingIndex = l.Index()
+						m.textInput.SetValue(t.Name)
+						m.root = m.root.Hide(panelHelp)
+						m.root = m.root.Show(panelEdit)
+						m.root = m.root.SetFocus(panelEdit)
+						m.textInput.Focus()
+						return m, nil
+					}
+				}
 			}
-			m.textInput.Reset()
+		case key.Matches(msg, m.keys.Alt1):
+			keyStr := msg.String()
+			if len(keyStr) >= 5 && keyStr[:4] == "alt+" {
+				panelNum := int(keyStr[4] - '0')
+				m.root = m.root.SetFocus(panelNum)
+			}
+			return m, nil
+		case key.Matches(msg, m.keys.AltT):
+			today := time.Now().Weekday()
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+				m = m.moveTask(focusedPanel.ID, int(today))
+			}
 		}
 	}
 	m.root, cmd = m.root.Update(msg)
@@ -270,8 +323,8 @@ func (m model) setWeek(week int) model {
 		if i == Inbox {
 			m.lists[i].Title = fmt.Sprintf("Inbox (Week %d)", m.week)
 		} else {
-			day := monday.AddDate(0, 0, i)
-			m.lists[i].Title = fmt.Sprintf("%s (%s)", days[i], day.Format("02.01.2006"))
+			day := monday.AddDate(0, 0, i-1)
+			m.lists[i].Title = fmt.Sprintf("%d: %s (%s)", i, days[i], day.Format("02.01.2006"))
 		}
 	}
 	return m
@@ -337,6 +390,7 @@ func main() {
 		lastFocus:  Inbox,
 		keys:       scheduled.Keys,
 		help:       h,
+		showHelp:   true,
 	}
 	defaultDelegate := list.NewDefaultDelegate()
 	defaultDelegate.ShowDescription = false

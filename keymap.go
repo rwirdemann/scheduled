@@ -16,6 +16,8 @@ type KeyMap struct {
 	Help       key.Binding
 	Enter      key.Binding
 	Quit       key.Binding
+	Alt1       key.Binding
+	AltT       key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
@@ -28,8 +30,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 // key.Map interface.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Esc, k.New, k.Space, k.Back},
+		{k.New, k.Enter, k.Space, k.Back},
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
+		{k.Alt1, k.AltT, k.Esc},
 		{k.Right, k.Left},
 		{k.Help, k.Quit},
 	}
@@ -46,7 +49,7 @@ var Keys = KeyMap{
 	),
 	Enter: key.NewBinding(
 		key.WithKeys("enter"),
-		key.WithHelp("enter", "submits task"),
+		key.WithHelp("enter", "edit task"),
 	),
 	Back: key.NewBinding(
 		key.WithKeys("backspace"),
@@ -82,10 +85,18 @@ var Keys = KeyMap{
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
-		key.WithHelp("?", "show help"),
+		key.WithHelp("?", "toggle help"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q"),
 		key.WithHelp("q", "quit"),
+	),
+	Alt1: key.NewBinding(
+		key.WithKeys("alt+1", "alt+2", "alt+3", "alt+4", "alt+5", "alt+6", "alt+7"),
+		key.WithHelp("alt+{i}", "focus day {i}"),
+	),
+	AltT: key.NewBinding(
+		key.WithKeys("alt+t"),
+		key.WithHelp("alt+t", "move task to today"),
 	),
 }
