@@ -18,6 +18,10 @@ macos-option-as-alt = true
 
 ### Feature: Task Pinning 
 
+### Feature: Zoom
+
+Zooms into a spefic day. The zoom window is a split view that consists the task list on the left and the details of the selected tasks on the right hand site. 
+
 ### Feature: Contexts
 
 ### Feature: Task Popup

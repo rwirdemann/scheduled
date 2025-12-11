@@ -250,6 +250,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, int(today))
 			}
+		case key.Matches(msg, m.keys.AltI):
+			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+				m = m.moveTask(focusedPanel.ID, Inbox)
+			}
 		}
 	}
 	m.root, cmd = m.root.Update(msg)
@@ -349,7 +353,7 @@ func (m model) setWeek(week int) model {
 	for i := Inbox; i <= Sunday; i++ {
 		monday := date.GetMondayOfWeek(m.week)
 		if i == Inbox {
-			m.lists[i].Title = fmt.Sprintf("Inbox (Week %d)", m.week)
+			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d)", m.week)
 		} else {
 			day := monday.AddDate(0, 0, i-1)
 			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
