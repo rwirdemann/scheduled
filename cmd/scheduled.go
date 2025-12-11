@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,8 +38,8 @@ type mode int
 
 const (
 	modeNormal mode = iota
-	editMode
-	newMode
+	modeEdit
+	modeNew
 )
 
 var days = map[int]string{
@@ -74,11 +75,6 @@ type model struct {
 	termWidth  int
 	termHeight int
 
-	// editing state
-	editingPanelID int // panel id that contains item currently edited
-	editingIndex   int // index of item being currently edited
-	isEditing      bool
-
 	mode mode
 }
 
@@ -111,7 +107,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
-	if focusedPanel, _ := m.root.Focused(); focusedPanel.ID == panelEdit {
+	switch m.mode {
+	case modeNew, modeEdit:
 		m.textInput, cmd = m.textInput.Update(msg)
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
@@ -119,20 +116,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Enter):
 				value := m.textInput.Value()
 				if len(strings.TrimSpace(value)) > 0 {
-					if m.isEditing {
-						// Update existing task
-						l := m.lists[m.editingPanelID]
-						if item := l.Items()[m.editingIndex]; item != nil {
-							t := item.(scheduled.Task)
-							t.Name = value
-							l.RemoveItem(m.editingIndex)
-							l.InsertItem(m.editingIndex, t)
-						}
-						m.isEditing = false
-					} else {
-						// Create new task
-						l := m.lists[m.lastFocus]
-						t := scheduled.Task{Name: value}
+					l := m.lists[m.lastFocus]
+					if m.mode == modeEdit {
+						item := l.SelectedItem()
+						t := item.(scheduled.Task)
+						t.Name = value
+						index := l.Index()
+						l.RemoveItem(index)
+						l.InsertItem(index, t)
+					}
+					if m.mode == modeNew {
+						t := scheduled.Task{Name: value, Day: m.lastFocus}
 						l.InsertItem(len(l.Items()), t)
 					}
 				}
@@ -143,9 +137,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.root = m.root.Show(panelHelp)
 				}
 				m.root = m.root.SetFocus(m.lastFocus)
-				return m, nil
+				m.mode = modeNormal
+			case key.Matches(msg, m.keys.Esc):
+				m.root = m.root.Hide(panelEdit)
+				m.textInput.Reset()
+				m.textInput.Blur()
+				if m.showHelp {
+					m.root = m.root.Show(panelHelp)
+				}
+				m.root = m.root.SetFocus(m.lastFocus)
+				m.mode = modeNormal
 			}
 		}
+		return m, cmd
 	}
 
 	switch msg := msg.(type) {
@@ -200,13 +204,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.root = m.root.Show(panelEdit)
 			m.root = m.root.SetFocus(panelEdit)
 			m.textInput.Focus()
+			m.mode = modeNew
 			return m, nil
 		case key.Matches(msg, m.keys.Esc):
 			m.root = m.root.Hide(panelEdit)
 			m.root = m.root.SetFocus(Inbox)
 			m.textInput.Reset()
 			m.textInput.Blur()
-			m.isEditing = false
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
@@ -224,29 +228,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.keys.Enter):
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				// Open edit panel with selected task
-				if l, exists := m.lists[focusedPanel.ID]; exists {
-					if selected := l.SelectedItem(); selected != nil {
-						t := selected.(scheduled.Task)
-						m.isEditing = true
-						m.editingPanelID = focusedPanel.ID
-						m.editingIndex = l.Index()
-						m.textInput.SetValue(t.Name)
-						m.root = m.root.Hide(panelHelp)
-						m.root = m.root.Show(panelEdit)
-						m.root = m.root.SetFocus(panelEdit)
-						m.textInput.Focus()
-						return m, nil
-					}
-				}
+			focusedPanel, _ := m.root.Focused()
+			l := m.lists[focusedPanel.ID]
+			if selected := l.SelectedItem(); selected != nil {
+				t := selected.(scheduled.Task)
+				m.textInput.SetValue(t.Name)
+				m.root = m.root.Hide(panelHelp)
+				m.root = m.root.Show(panelEdit)
+				m.root = m.root.SetFocus(panelEdit)
+				m.textInput.Focus()
+				m.mode = modeEdit
+				return m, nil
 			}
-		case key.Matches(msg, m.keys.Alt1):
-			keyStr := msg.String()
-			if len(keyStr) >= 5 && keyStr[:4] == "alt+" {
-				panelNum := int(keyStr[4] - '0')
-				m.root = m.root.SetFocus(panelNum)
-			}
+		case key.Matches(msg, m.keys.Num):
+			key := msg.String()
+			panelNum, _ := strconv.Atoi(key)
+			m.root = m.root.SetFocus(panelNum)
 			return m, nil
 		case key.Matches(msg, m.keys.AltT):
 			today := time.Now().Weekday()
@@ -355,7 +352,7 @@ func (m model) setWeek(week int) model {
 			m.lists[i].Title = fmt.Sprintf("Inbox (Week %d)", m.week)
 		} else {
 			day := monday.AddDate(0, 0, i-1)
-			m.lists[i].Title = fmt.Sprintf("%d: %s (%s)", i, days[i], day.Format("02.01.2006"))
+			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
 		}
 	}
 	return m

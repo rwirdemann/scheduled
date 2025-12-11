@@ -16,7 +16,7 @@ type KeyMap struct {
 	Help       key.Binding
 	Enter      key.Binding
 	Quit       key.Binding
-	Alt1       key.Binding
+	Num        key.Binding
 	AltT       key.Binding
 }
 
@@ -32,7 +32,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.New, k.Enter, k.Space, k.Back},
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
-		{k.Alt1, k.AltT, k.Esc},
+		{k.Num, k.AltT, k.Esc},
 		{k.Right, k.Left},
 		{k.Help, k.Quit},
 	}
@@ -91,9 +91,9 @@ var Keys = KeyMap{
 		key.WithKeys("q"),
 		key.WithHelp("q", "quit"),
 	),
-	Alt1: key.NewBinding(
-		key.WithKeys("alt+1", "alt+2", "alt+3", "alt+4", "alt+5", "alt+6", "alt+7"),
-		key.WithHelp("alt+{i}", "focus day {i}"),
+	Num: key.NewBinding(
+		key.WithKeys("1", "2", "3", "4", "5", "6", "7"),
+		key.WithHelp("{i}", "focus day {i}"),
 	),
 	AltT: key.NewBinding(
 		key.WithKeys("alt+t"),
