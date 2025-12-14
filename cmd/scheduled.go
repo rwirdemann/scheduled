@@ -208,9 +208,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Esc):
 			m.root = m.root.Hide(panelEdit)
-			m.root = m.root.SetFocus(Inbox)
 			m.textInput.Reset()
 			m.textInput.Blur()
+			m.root = m.root.SetFocus(Inbox)
+			m = m.saveAndRestoreSelection(Inbox)
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
@@ -244,7 +245,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			key := msg.String()
 			panelNum, _ := strconv.Atoi(key)
 			m.root = m.root.SetFocus(panelNum)
-			m.lastFocus = panelNum
+			m = m.saveAndRestoreSelection(panelNum)
 			return m, nil
 		case key.Matches(msg, m.keys.AltT):
 			today := time.Now().Weekday()
@@ -262,20 +263,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// find focused panel and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
-		// Handle focus changes
-		if m.lastFocus != focusedPanel.ID && focusedPanel.ID != panelEdit {
-			// Save index and deselect previously focused list
-			if prevList, exists := m.lists[m.lastFocus]; exists {
-				prevList.SaveIndex()
-				prevList.Deselect()
-			}
-			// Restore index of newly focused list
-			if currList, exists := m.lists[focusedPanel.ID]; exists {
-				currList.RestoreIndex()
-			}
-			m.lastFocus = focusedPanel.ID
-		}
-
+		m = m.saveAndRestoreSelection(focusedPanel.ID)
 		if list, exists := m.lists[focusedPanel.ID]; exists {
 			list.Model, cmd = list.Model.Update(msg)
 		}
@@ -283,6 +271,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+func (m model) saveAndRestoreSelection(focusedPanelID int) model {
+	if m.lastFocus != focusedPanelID && focusedPanelID != panelEdit {
+		// Save index and deselect previously focused list
+		if prevList, exists := m.lists[m.lastFocus]; exists {
+			prevList.SaveIndex()
+			prevList.Deselect()
+		}
+		// Restore index of newly focused list
+		if currList, exists := m.lists[focusedPanelID]; exists {
+			currList.RestoreIndex()
+		}
+		m.lastFocus = focusedPanelID
+	}
+	return m
 }
 
 func (m model) moveTask(from, to int) model {
