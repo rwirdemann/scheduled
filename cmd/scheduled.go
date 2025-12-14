@@ -244,6 +244,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			key := msg.String()
 			panelNum, _ := strconv.Atoi(key)
 			m.root = m.root.SetFocus(panelNum)
+			m.lastFocus = panelNum
 			return m, nil
 		case key.Matches(msg, m.keys.AltT):
 			today := time.Now().Weekday()
