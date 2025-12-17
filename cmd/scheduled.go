@@ -32,6 +32,7 @@ const (
 
 	panelEdit = 40
 	panelHelp = 50
+	panelLeft = 60
 )
 
 type mode int
@@ -40,6 +41,7 @@ const (
 	modeNormal mode = iota
 	modeEdit
 	modeNew
+	modeContexts
 )
 
 var days = map[int]string{
@@ -75,6 +77,8 @@ type model struct {
 	termWidth  int
 	termHeight int
 
+	contextList list.Model
+
 	mode mode
 }
 
@@ -87,14 +91,24 @@ func newModel(root panel.Model) model {
 	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	h.Styles.FullSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	contextListDelegate := list.NewDefaultDelegate()
+	contextListDelegate.ShowDescription = false
+	contextListDelegate.SetSpacing(0)
+	contextList := list.New([]list.Item{scheduled.Context{Name: "private"}, scheduled.Context{Name: "neonpulse"}}, contextListDelegate, 0, 0)
+	contextList.SetShowHelp(false)
+	contextList.SetShowStatusBar(false)
+	contextList.Title = "Contexts"
+
 	m := model{root: root, lists: make(map[int]*scheduled.ListModel),
-		repository: file.Repository{},
-		textInput:  ti,
-		lastFocus:  Inbox,
-		keys:       scheduled.Keys,
-		help:       h,
-		showHelp:   true,
-		mode:       modeNormal,
+		repository:  file.Repository{},
+		textInput:   ti,
+		lastFocus:   Inbox,
+		keys:        scheduled.Keys,
+		help:        h,
+		showHelp:    true,
+		mode:        modeNormal,
+		contextList: contextList,
 	}
 	return m
 }
@@ -150,6 +164,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, cmd
+	case modeContexts:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch {
+			case key.Matches(msg, m.keys.Contexts):
+				m.mode = modeNormal
+				m.root = m.root.Hide(panelLeft)
+				return m, nil
+			}
+		}
 	}
 
 	switch msg := msg.(type) {
@@ -256,6 +280,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, Inbox)
 			}
+		case key.Matches(msg, m.keys.Contexts):
+			m.mode = modeContexts
+			m.root = m.root.Show(panelLeft)
+			return m, nil
 		}
 	}
 	m.root, cmd = m.root.Update(msg)
@@ -384,6 +412,12 @@ func renderHelp(m tea.Model, panelID int, w, h int) string {
 	return model.help.FullHelpView(model.keys.FullHelp())
 }
 
+func renderLeftPanel(m tea.Model, panelID int, w, h int) string {
+	model := m.(model)
+	model.contextList.SetSize(w, h)
+	return model.contextList.View()
+}
+
 func main() {
 	row1 := panel.New().WithId(20).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
@@ -402,11 +436,17 @@ func main() {
 	row3 := panel.New().WithId(panelEdit).WithRatio(16).WithContent(renderPanel).WithBorder().WithVisible(false)
 	helpPanel := panel.New().WithId(panelHelp).WithRatio(16).WithContent(renderHelp).WithBorder().WithVisible(true)
 
-	rootPanel := panel.New().WithId(10).WithRatio(100).WithLayout(panel.LayoutDirectionVertical).
+	rightPanel := panel.New().WithId(10).WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
 		Append(row2).
 		Append(row3).
 		Append(helpPanel)
+
+	leftPanel := panel.New().WithId(panelLeft).WithRatio(10).WithBorder().WithVisible(false).WithContent(renderLeftPanel)
+
+	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionHorizontal).
+		Append(leftPanel).
+		Append(rightPanel)
 
 	m := newModel(rootPanel)
 	defaultDelegate := list.NewDefaultDelegate()

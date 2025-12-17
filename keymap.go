@@ -19,6 +19,7 @@ type KeyMap struct {
 	Num        key.Binding
 	AltT       key.Binding
 	AltI       key.Binding
+	Contexts   key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
@@ -35,7 +36,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
 		{k.Num, k.AltT, k.AltI, k.Esc},
 		{k.Right, k.Left},
-		{k.Help, k.Quit},
+		{k.Help, k.Contexts, k.Quit},
 	}
 }
 
@@ -103,5 +104,9 @@ var Keys = KeyMap{
 	AltI: key.NewBinding(
 		key.WithKeys("alt+i"),
 		key.WithHelp("alt+i", "move task inbox"),
+	),
+	Contexts: key.NewBinding(
+		key.WithKeys("c"),
+		key.WithHelp("c", "show contexts"),
 	),
 }
