@@ -107,6 +107,8 @@ func (m *model) createTaskForm(task *scheduled.Task) *huh.Form {
 			})
 	}
 
+	k := huh.NewDefaultKeyMap()
+	k.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel"))
 	return huh.NewForm(
 		huh.NewGroup(titleInput),
 		huh.NewGroup(
@@ -118,7 +120,7 @@ func (m *model) createTaskForm(task *scheduled.Task) *huh.Form {
 					huh.NewOption("neonpulse", "neonpulse"),
 				),
 		),
-	).WithLayout(huh.LayoutGrid(1, 2))
+	).WithLayout(huh.LayoutGrid(1, 2)).WithKeyMap(k)
 }
 
 func newModel(root panel.Model) model {
@@ -174,6 +176,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					t := scheduled.Task{Name: m.form.GetString("title"), Day: m.lastFocus}
 					l.InsertItem(len(l.Items()), t)
 				}
+				m.root = m.root.Hide(panelEdit)
+				if m.showHelp {
+					m.root = m.root.Show(panelHelp)
+				}
+				m.root = m.root.SetFocus(m.lastFocus)
+				m.mode = modeNormal
+			}
+			if f.State == huh.StateAborted {
 				m.root = m.root.Hide(panelEdit)
 				if m.showHelp {
 					m.root = m.root.Show(panelHelp)
@@ -437,7 +447,7 @@ func renderLeftPanel(m tea.Model, panelID int, w, h int) string {
 }
 
 func main() {
-	row1 := panel.New().WithId(20).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
+	row1 := panel.New().WithId(20).WithRatio(44).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		if i == 0 {
@@ -446,18 +456,18 @@ func main() {
 		row1 = row1.Append(p)
 	}
 
-	row2 := panel.New().WithId(30).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
+	row2 := panel.New().WithId(30).WithRatio(44).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := 4; i < 8; i++ {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		row2 = row2.Append(p)
 	}
-	row3 := panel.New().WithId(panelEdit).WithRatio(16).WithContent(renderPanel).WithBorder().WithVisible(false)
-	helpPanel := panel.New().WithId(panelHelp).WithRatio(16).WithContent(renderHelp).WithBorder().WithVisible(true)
+	editPanel := panel.New().WithId(panelEdit).WithRatio(12).WithContent(renderPanel).WithBorder().WithVisible(false)
+	helpPanel := panel.New().WithId(panelHelp).WithRatio(12).WithContent(renderHelp).WithBorder().WithVisible(true)
 
 	rightPanel := panel.New().WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
 		Append(row2).
-		Append(row3).
+		Append(editPanel).
 		Append(helpPanel)
 
 	leftPanel := panel.New().WithId(panelLeft).WithRatio(10).WithBorder().WithVisible(false).WithContent(renderLeftPanel)
