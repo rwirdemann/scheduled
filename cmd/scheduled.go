@@ -1,18 +1,18 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
@@ -66,7 +66,7 @@ type model struct {
 	week  int
 
 	lists      map[int]*scheduled.ListModel
-	textInput  textinput.Model
+	form       *huh.Form
 	repository repository
 	lastFocus  int
 
@@ -82,11 +82,46 @@ type model struct {
 	mode mode
 }
 
-func newModel(root panel.Model) model {
-	ti := textinput.New()
-	ti.Placeholder = "Edit or update task (enter to submit, esc to cancel)"
-	ti.Width = 80
+func (m *model) createTaskForm(task *scheduled.Task) *huh.Form {
+	var titleInput *huh.Input
+	if task != nil {
+		titleInput = huh.NewInput().
+			Title("Title").
+			Key("title").
+			Value(&task.Name).
+			Validate(func(str string) error {
+				if str == "" {
+					return errors.New("Please enter a title")
+				}
+				return nil
+			})
+	} else {
+		titleInput = huh.NewInput().
+			Title("Title").
+			Key("title").
+			Validate(func(str string) error {
+				if str == "" {
+					return errors.New("Please enter a title")
+				}
+				return nil
+			})
+	}
 
+	return huh.NewForm(
+		huh.NewGroup(titleInput),
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Context").
+				Options(
+					huh.NewOption("none", "none"),
+					huh.NewOption("private", "private"),
+					huh.NewOption("neonpulse", "neonpulse"),
+				),
+		),
+	).WithLayout(huh.LayoutGrid(1, 2))
+}
+
+func newModel(root panel.Model) model {
 	h := help.New()
 	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
@@ -102,7 +137,6 @@ func newModel(root panel.Model) model {
 
 	m := model{root: root, lists: make(map[int]*scheduled.ListModel),
 		repository:  file.Repository{},
-		textInput:   ti,
 		lastFocus:   Inbox,
 		keys:        scheduled.Keys,
 		help:        h,
@@ -123,39 +157,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.mode {
 	case modeNew, modeEdit:
-		m.textInput, cmd = m.textInput.Update(msg)
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch {
-			case key.Matches(msg, m.keys.Enter):
-				value := m.textInput.Value()
-				if len(strings.TrimSpace(value)) > 0 {
-					l := m.lists[m.lastFocus]
-					if m.mode == modeEdit {
-						item := l.SelectedItem()
-						t := item.(scheduled.Task)
-						t.Name = value
-						index := l.Index()
-						l.RemoveItem(index)
-						l.InsertItem(index, t)
-					}
-					if m.mode == modeNew {
-						t := scheduled.Task{Name: value, Day: m.lastFocus}
-						l.InsertItem(len(l.Items()), t)
-					}
+		form, cmd := m.form.Update(msg)
+		if f, ok := form.(*huh.Form); ok {
+			m.form = f
+			if f.State == huh.StateCompleted {
+				l := m.lists[m.lastFocus]
+				if m.mode == modeEdit {
+					item := l.SelectedItem()
+					t := item.(scheduled.Task)
+					t.Name = m.form.GetString("title")
+					index := l.Index()
+					l.RemoveItem(index)
+					l.InsertItem(index, t)
 				}
-				m.textInput.Reset()
-				m.textInput.Blur()
-				m.root = m.root.Hide(panelEdit)
-				if m.showHelp {
-					m.root = m.root.Show(panelHelp)
+				if m.mode == modeNew {
+					t := scheduled.Task{Name: m.form.GetString("title"), Day: m.lastFocus}
+					l.InsertItem(len(l.Items()), t)
 				}
-				m.root = m.root.SetFocus(m.lastFocus)
-				m.mode = modeNormal
-			case key.Matches(msg, m.keys.Esc):
 				m.root = m.root.Hide(panelEdit)
-				m.textInput.Reset()
-				m.textInput.Blur()
 				if m.showHelp {
 					m.root = m.root.Show(panelHelp)
 				}
@@ -163,6 +182,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.mode = modeNormal
 			}
 		}
+
 		return m, cmd
 	case modeContexts:
 		switch msg := msg.(type) {
@@ -224,16 +244,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				l.MoveItemDown()
 			}
 		case key.Matches(msg, m.keys.New):
+			m.form = m.createTaskForm(nil)
 			m.root = m.root.Hide(panelHelp)
 			m.root = m.root.Show(panelEdit)
 			m.root = m.root.SetFocus(panelEdit)
-			m.textInput.Focus()
 			m.mode = modeNew
-			return m, nil
+			return m, m.form.Init()
 		case key.Matches(msg, m.keys.Esc):
 			m.root = m.root.Hide(panelEdit)
-			m.textInput.Reset()
-			m.textInput.Blur()
 			m.root = m.root.SetFocus(Inbox)
 			m = m.saveAndRestoreSelection(Inbox)
 			return m, nil
@@ -257,13 +275,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			l := m.lists[focusedPanel.ID]
 			if selected := l.SelectedItem(); selected != nil {
 				t := selected.(scheduled.Task)
-				m.textInput.SetValue(t.Name)
+				m.form = m.createTaskForm(&t)
 				m.root = m.root.Hide(panelHelp)
 				m.root = m.root.Show(panelEdit)
 				m.root = m.root.SetFocus(panelEdit)
-				m.textInput.Focus()
 				m.mode = modeEdit
-				return m, nil
+				return m, m.form.Init()
 			}
 		case key.Matches(msg, m.keys.Num):
 			key := msg.String()
@@ -397,8 +414,9 @@ func (m model) setWeek(week int) model {
 
 func renderPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
-	if panelID == 40 {
-		return model.textInput.View()
+	if panelID == panelEdit {
+		model.form.WithHeight(h).WithWidth(w / 2)
+		return model.form.View()
 	}
 	if list, exists := model.lists[panelID]; exists {
 		list.Model.SetSize(w, h)
@@ -436,7 +454,7 @@ func main() {
 	row3 := panel.New().WithId(panelEdit).WithRatio(16).WithContent(renderPanel).WithBorder().WithVisible(false)
 	helpPanel := panel.New().WithId(panelHelp).WithRatio(16).WithContent(renderHelp).WithBorder().WithVisible(true)
 
-	rightPanel := panel.New().WithId(10).WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
+	rightPanel := panel.New().WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
 		Append(row2).
 		Append(row3).
