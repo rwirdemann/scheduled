@@ -76,7 +76,8 @@ type model struct {
 	termWidth  int
 	termHeight int
 
-	contextList list.Model
+	contextList     list.Model
+	selectedContext scheduled.Context
 
 	mode mode
 }
@@ -96,13 +97,14 @@ func newModel(root panel.Model) model {
 	contextList.Title = "Contexts"
 
 	m := model{root: root, lists: make(map[int]*scheduled.ListModel),
-		taskRepository: file.Repository{},
-		lastFocus:      Inbox,
-		keys:           scheduled.Keys,
-		help:           h,
-		showHelp:       true,
-		mode:           modeNormal,
-		contextList:    contextList,
+		taskRepository:  file.Repository{},
+		lastFocus:       Inbox,
+		keys:            scheduled.Keys,
+		help:            h,
+		showHelp:        true,
+		mode:            modeNormal,
+		contextList:     contextList,
+		selectedContext: scheduled.ContextNone,
 	}
 	return m
 }
@@ -158,12 +160,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch {
-			case key.Matches(msg, m.keys.Contexts):
+			case key.Matches(msg, m.keys.Contexts), key.Matches(msg, m.keys.Esc):
 				m.mode = modeNormal
 				m.root = m.root.Hide(panelLeft)
+				m.root = m.root.SetFocus(m.lastFocus)
+				return m, nil
+			case key.Matches(msg, m.keys.Enter):
+				m.mode = modeNormal
+				i := m.contextList.SelectedItem()
+				m.selectedContext = i.(scheduled.Context)
+				m.root = m.root.Hide(panelLeft)
+				m.lists[Inbox].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
+				m.root = m.root.SetFocus(m.lastFocus)
 				return m, nil
 			}
 		}
+		m.contextList, cmd = m.contextList.Update(msg)
+		return m, cmd
 	}
 
 	switch msg := msg.(type) {
@@ -271,6 +284,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Contexts):
 			m.mode = modeContexts
 			m.root = m.root.Show(panelLeft)
+			m.root.SetFocus(panelLeft)
 			return m, nil
 		}
 	}
@@ -372,7 +386,7 @@ func (m model) setWeek(week int) model {
 	for i := Inbox; i <= Sunday; i++ {
 		monday := date.GetMondayOfWeek(m.week)
 		if i == Inbox {
-			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d)", m.week)
+			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
 		} else {
 			day := monday.AddDate(0, 0, i-1)
 			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
