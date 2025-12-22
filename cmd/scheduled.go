@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -55,7 +54,7 @@ var days = map[int]string{
 	Sunday:    "Sunday",
 }
 
-type repository interface {
+type taskRepository interface {
 	Load() []scheduled.Task
 	Save(tasks []scheduled.Task)
 }
@@ -65,10 +64,10 @@ type model struct {
 	focus int
 	week  int
 
-	lists      map[int]*scheduled.ListModel
-	form       *huh.Form
-	repository repository
-	lastFocus  int
+	lists          map[int]*scheduled.ListModel
+	form           *huh.Form
+	taskRepository taskRepository
+	lastFocus      int
 
 	showHelp bool
 	keys     scheduled.KeyMap
@@ -82,47 +81,6 @@ type model struct {
 	mode mode
 }
 
-func (m *model) createTaskForm(task *scheduled.Task) *huh.Form {
-	var titleInput *huh.Input
-	if task != nil {
-		titleInput = huh.NewInput().
-			Title("Title").
-			Key("title").
-			Value(&task.Name).
-			Validate(func(str string) error {
-				if str == "" {
-					return errors.New("Please enter a title")
-				}
-				return nil
-			})
-	} else {
-		titleInput = huh.NewInput().
-			Title("Title").
-			Key("title").
-			Validate(func(str string) error {
-				if str == "" {
-					return errors.New("Please enter a title")
-				}
-				return nil
-			})
-	}
-
-	k := huh.NewDefaultKeyMap()
-	k.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel"))
-	return huh.NewForm(
-		huh.NewGroup(titleInput),
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Context").
-				Options(
-					huh.NewOption("none", "none"),
-					huh.NewOption("private", "private"),
-					huh.NewOption("neonpulse", "neonpulse"),
-				),
-		),
-	).WithLayout(huh.LayoutGrid(1, 2)).WithKeyMap(k)
-}
-
 func newModel(root panel.Model) model {
 	h := help.New()
 	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
@@ -132,19 +90,19 @@ func newModel(root panel.Model) model {
 	contextListDelegate := list.NewDefaultDelegate()
 	contextListDelegate.ShowDescription = false
 	contextListDelegate.SetSpacing(0)
-	contextList := list.New([]list.Item{scheduled.Context{Name: "private"}, scheduled.Context{Name: "neonpulse"}}, contextListDelegate, 0, 0)
+	contextList := list.New([]list.Item{scheduled.ContextNone, scheduled.ContextPrivate, scheduled.ContextiNeonpulse}, contextListDelegate, 0, 0)
 	contextList.SetShowHelp(false)
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
 	m := model{root: root, lists: make(map[int]*scheduled.ListModel),
-		repository:  file.Repository{},
-		lastFocus:   Inbox,
-		keys:        scheduled.Keys,
-		help:        h,
-		showHelp:    true,
-		mode:        modeNormal,
-		contextList: contextList,
+		taskRepository: file.Repository{},
+		lastFocus:      Inbox,
+		keys:           scheduled.Keys,
+		help:           h,
+		showHelp:       true,
+		mode:           modeNormal,
+		contextList:    contextList,
 	}
 	return m
 }
@@ -168,12 +126,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					item := l.SelectedItem()
 					t := item.(scheduled.Task)
 					t.Name = m.form.GetString("title")
+					t.Context = m.form.GetInt("context")
 					index := l.Index()
 					l.RemoveItem(index)
 					l.InsertItem(index, t)
 				}
 				if m.mode == modeNew {
-					t := scheduled.Task{Name: m.form.GetString("title"), Day: m.lastFocus}
+					t := scheduled.Task{Name: m.form.GetString("title"),
+						Day: m.lastFocus}
 					l.InsertItem(len(l.Items()), t)
 				}
 				m.root = m.root.Hide(panelEdit)
@@ -222,6 +182,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case key.Matches(msg, m.keys.Quit):
+			m.saveTasks()
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Right):
 			if m.week < 52 {
@@ -254,7 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				l.MoveItemDown()
 			}
 		case key.Matches(msg, m.keys.New):
-			m.form = m.createTaskForm(nil)
+			m.form = scheduled.CreateTaskForm(nil)
 			m.root = m.root.Hide(panelHelp)
 			m.root = m.root.Show(panelEdit)
 			m.root = m.root.SetFocus(panelEdit)
@@ -285,7 +246,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			l := m.lists[focusedPanel.ID]
 			if selected := l.SelectedItem(); selected != nil {
 				t := selected.(scheduled.Task)
-				m.form = m.createTaskForm(&t)
+				m.form = scheduled.CreateTaskForm(&t)
 				m.root = m.root.Hide(panelHelp)
 				m.root = m.root.Show(panelEdit)
 				m.root = m.root.SetFocus(panelEdit)
@@ -363,7 +324,7 @@ func (m model) moveTask(from, to int) model {
 
 func (m model) loadTasks() {
 	var tasksByDay = make(map[int][]list.Item)
-	tasks := m.repository.Load()
+	tasks := m.taskRepository.Load()
 	for _, task := range tasks {
 		tasksByDay[task.Day] = append(tasksByDay[task.Day], task)
 	}
@@ -391,12 +352,10 @@ func (m model) saveTasks() {
 			tasks = append(tasks, t)
 		}
 	}
-	m.repository.Save(tasks)
+	m.taskRepository.Save(tasks)
 }
 
 func (m model) View() string {
-	m.saveTasks()
-
 	const minWidth = 120
 	const minHeight = 40
 

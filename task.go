@@ -1,11 +1,14 @@
 package scheduled
 
+import "fmt"
+
 type Task struct {
-	Name string `json:"name"`
-	Desc string `json:"description"`
-	Day  int    `json:"day"`
-	Done bool   `json:"done"`
-	Pos  int    `json:"pos"`
+	Name    string `json:"name"`
+	Desc    string `json:"description"`
+	Day     int    `json:"day"`
+	Done    bool   `json:"done"`
+	Pos     int    `json:"pos"`
+	Context int    `json:"context"`
 }
 
 func (i Task) Title() string {
@@ -14,7 +17,7 @@ func (i Task) Title() string {
 		// Gray color using ANSI escape code
 		return "\x1b[90m✓ " + i.Name + "\x1b[0m"
 	}
-	return checkbox + i.Name
+	return fmt.Sprintf("%s%s (%d)", checkbox, i.Name, i.Context)
 }
 
 func (i Task) Description() string { return i.Desc }
