@@ -104,6 +104,18 @@ func (m *Model) ToggleDone(listIndex int) {
 		l.ToggleDone()
 	}
 }
+func (m *Model) DeleteTask(listIndex int) {
+	if l, exists := m.Lists[listIndex]; exists {
+		i := l.SelectedItem()
+		if i == nil {
+			return
+		}
+		task := i.(scheduled.Task)
+		if task.Done {
+			l.RemoveItem(l.Index())
+		}
+	}
+}
 
 type repository interface {
 	Load() []scheduled.Task

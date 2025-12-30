@@ -238,12 +238,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.Back):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				l := m.board.Lists[focusedPanel.ID]
-				selected := l.SelectedItem()
-				t := selected.(scheduled.Task)
-				if t.Done {
-					l.RemoveItem(l.Index())
-				}
+				m.board.DeleteTask(focusedPanel.ID)
 			}
 		case key.Matches(msg, m.keys.Enter):
 			focusedPanel, _ := m.root.Focused()
