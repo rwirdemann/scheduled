@@ -52,7 +52,7 @@ func NewModel(repository repository) *Model {
 	return m
 }
 
-func (m Model) loadTasks() {
+func (m *Model) loadTasks() {
 	var tasksByDay = make(map[int][]list.Item)
 	tasks := m.repository.Load()
 	for _, task := range tasks {

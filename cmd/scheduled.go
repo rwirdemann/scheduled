@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"time"
 
@@ -108,6 +107,8 @@ func newModel(root panel.Model) model {
 		selectedContext: scheduled.ContextNone,
 		board:           board.NewModel(file.Repository{}),
 	}
+	_, w := time.Now().ISOWeek()
+	m = m.setWeek(w)
 	return m
 }
 
@@ -300,27 +301,6 @@ func (m model) moveTask(from, to int) model {
 	return m
 }
 
-func (m model) loadTasks() {
-	var tasksByDay = make(map[int][]list.Item)
-	tasks := m.taskRepository.Load()
-	for _, task := range tasks {
-		tasksByDay[task.Day] = append(tasksByDay[task.Day], task)
-	}
-
-	// Sort tasks by their Pos field
-	for _, items := range tasksByDay {
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].(scheduled.Task).Pos < items[j].(scheduled.Task).Pos
-		})
-	}
-
-	for day := range m.board.Lists {
-		for i, item := range tasksByDay[day] {
-			m.board.Lists[day].InsertItem(i, item)
-		}
-	}
-}
-
 func (m model) saveTasks() {
 	var tasks []scheduled.Task
 	for _, list := range m.board.Lists {
@@ -414,26 +394,6 @@ func main() {
 		Append(rightPanel)
 
 	m := newModel(rootPanel)
-	defaultDelegate := list.NewDefaultDelegate()
-	defaultDelegate.ShowDescription = false
-	defaultDelegate.SetSpacing(0)
-	for i := Inbox; i <= Sunday; i++ {
-		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
-		l.SetShowStatusBar(false)
-		l.SetShowHelp(false)
-		m.board.Lists[i] = board.NewListModel(l)
-	}
-	_, w := time.Now().ISOWeek()
-	m = m.setWeek(w)
-	m.loadTasks()
-
-	// Deselect all lists except the focused one (Inbox)
-	for i := Inbox; i <= Sunday; i++ {
-		if i != Inbox {
-			m.board.Lists[i].Deselect()
-		}
-	}
-
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("there's been an error: %v", err)
