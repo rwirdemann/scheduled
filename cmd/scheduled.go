@@ -278,9 +278,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// find focused panel and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
 		m = m.saveAndRestoreSelection(focusedPanel.ID)
-		if list, exists := m.board.Lists[focusedPanel.ID]; exists {
-			list.Model, cmd = list.Model.Update(msg)
-		}
+		cmd = m.board.Update(focusedPanel.ID, msg)
 		cmds = append(cmds, cmd)
 	}
 

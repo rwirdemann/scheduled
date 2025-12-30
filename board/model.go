@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rwirdemann/scheduled"
 )
 
@@ -125,6 +126,15 @@ func (m *Model) GetSelectedTask(listIndex int) (scheduled.Task, bool) {
 		}
 	}
 	return scheduled.Task{}, false
+}
+
+func (m *Model) Update(listIndex int, msg tea.Msg) tea.Cmd {
+	if l, exists := m.Lists[listIndex]; exists {
+		updated, cmd := l.Update(msg)
+		m.Lists[listIndex].Model = updated
+		return cmd
+	}
+	return nil
 }
 
 type repository interface {
