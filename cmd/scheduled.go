@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
+	"github.com/rwirdemann/scheduled/board"
 	"github.com/rwirdemann/scheduled/date"
 	"github.com/rwirdemann/scheduled/file"
 )
@@ -64,7 +65,8 @@ type model struct {
 	focus int
 	week  int
 
-	lists          map[int]*scheduled.ListModel
+	board *board.Model
+
 	form           *huh.Form
 	taskRepository taskRepository
 	lastFocus      int
@@ -96,7 +98,8 @@ func newModel(root panel.Model) model {
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
-	m := model{root: root, lists: make(map[int]*scheduled.ListModel),
+	m := model{
+		root:            root,
 		taskRepository:  file.Repository{},
 		lastFocus:       Inbox,
 		keys:            scheduled.Keys,
@@ -105,6 +108,7 @@ func newModel(root panel.Model) model {
 		mode:            modeNormal,
 		contextList:     contextList,
 		selectedContext: scheduled.ContextNone,
+		board:           board.NewModel(file.Repository{}),
 	}
 	return m
 }
@@ -123,20 +127,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if f, ok := form.(*huh.Form); ok {
 			m.form = f
 			if f.State == huh.StateCompleted {
-				l := m.lists[m.lastFocus]
+				title := m.form.GetString("title")
+				context := m.form.GetInt("context")
 				if m.mode == modeEdit {
-					item := l.SelectedItem()
-					t := item.(scheduled.Task)
-					t.Name = m.form.GetString("title")
-					t.Context = m.form.GetInt("context")
-					index := l.Index()
-					l.RemoveItem(index)
-					l.InsertItem(index, t)
+					m.board.UpdateTask(m.lastFocus, title, context)
 				}
 				if m.mode == modeNew {
-					t := scheduled.Task{Name: m.form.GetString("title"),
-						Day: m.lastFocus}
-					l.InsertItem(len(l.Items()), t)
+					m.board.CreateTask(m.lastFocus, title, context)
 				}
 				m.root = m.root.Hide(panelEdit)
 				if m.showHelp {
@@ -170,7 +167,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				i := m.contextList.SelectedItem()
 				m.selectedContext = i.(scheduled.Context)
 				m.root = m.root.Hide(panelLeft)
-				m.lists[Inbox].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
+				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name))
 				m.root = m.root.SetFocus(m.lastFocus)
 				return m, nil
 			}
@@ -219,14 +216,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.ShiftUp):
 			focusedPanel, _ := m.root.Focused()
-			if l, exists := m.lists[focusedPanel.ID]; exists {
-				l.MoveItemUp()
-			}
+			m.board.MoveUp(focusedPanel.ID)
 		case key.Matches(msg, m.keys.ShiftDown):
 			focusedPanel, _ := m.root.Focused()
-			if l, exists := m.lists[focusedPanel.ID]; exists {
-				l.MoveItemDown()
-			}
+			m.board.MoveDown(focusedPanel.ID)
 		case key.Matches(msg, m.keys.New):
 			m.form = scheduled.CreateTaskForm(nil)
 			m.root = m.root.Hide(panelHelp)
@@ -241,13 +234,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				if l, exists := m.lists[focusedPanel.ID]; exists {
+				if l, exists := m.board.Lists[focusedPanel.ID]; exists {
 					l.ToggleDone()
 				}
 			}
 		case key.Matches(msg, m.keys.Back):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				l := m.lists[focusedPanel.ID]
+				l := m.board.Lists[focusedPanel.ID]
 				selected := l.SelectedItem()
 				t := selected.(scheduled.Task)
 				if t.Done {
@@ -256,7 +249,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.Enter):
 			focusedPanel, _ := m.root.Focused()
-			l := m.lists[focusedPanel.ID]
+			l := m.board.Lists[focusedPanel.ID]
 			if selected := l.SelectedItem(); selected != nil {
 				t := selected.(scheduled.Task)
 				m.form = scheduled.CreateTaskForm(&t)
@@ -272,12 +265,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.root = m.root.SetFocus(panelNum)
 			m = m.saveAndRestoreSelection(panelNum)
 			return m, nil
-		case key.Matches(msg, m.keys.AltT):
+		case key.Matches(msg, m.keys.MoveToToday):
 			today := time.Now().Weekday()
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, int(today))
 			}
-		case key.Matches(msg, m.keys.AltI):
+		case key.Matches(msg, m.keys.MoveToInbox):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m = m.moveTask(focusedPanel.ID, Inbox)
 			}
@@ -294,7 +287,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// find focused panel and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
 		m = m.saveAndRestoreSelection(focusedPanel.ID)
-		if list, exists := m.lists[focusedPanel.ID]; exists {
+		if list, exists := m.board.Lists[focusedPanel.ID]; exists {
 			list.Model, cmd = list.Model.Update(msg)
 		}
 		cmds = append(cmds, cmd)
@@ -306,12 +299,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) saveAndRestoreSelection(focusedPanelID int) model {
 	if m.lastFocus != focusedPanelID && focusedPanelID != panelEdit {
 		// Save index and deselect previously focused list
-		if prevList, exists := m.lists[m.lastFocus]; exists {
+		if prevList, exists := m.board.Lists[m.lastFocus]; exists {
 			prevList.SaveIndex()
 			prevList.Deselect()
 		}
 		// Restore index of newly focused list
-		if currList, exists := m.lists[focusedPanelID]; exists {
+		if currList, exists := m.board.Lists[focusedPanelID]; exists {
 			currList.RestoreIndex()
 		}
 		m.lastFocus = focusedPanelID
@@ -320,18 +313,18 @@ func (m model) saveAndRestoreSelection(focusedPanelID int) model {
 }
 
 func (m model) moveTask(from, to int) model {
-	if _, exists := m.lists[to]; !exists {
+	if _, exists := m.board.Lists[to]; !exists {
 		to = 0
 	}
 	if from == to {
 		return m
 	}
 
-	if item := m.lists[from].SelectedItem(); item != nil {
+	if item := m.board.Lists[from].SelectedItem(); item != nil {
 		t := item.(scheduled.Task)
 		t.Day = to
-		m.lists[from].RemoveItem(m.lists[from].Index())
-		m.lists[to].InsertItem(len(m.lists[to].Items()), t)
+		m.board.Lists[from].RemoveItem(m.board.Lists[from].Index())
+		m.board.Lists[to].InsertItem(len(m.board.Lists[to].Items()), t)
 	}
 	return m
 }
@@ -350,16 +343,16 @@ func (m model) loadTasks() {
 		})
 	}
 
-	for day := range m.lists {
+	for day := range m.board.Lists {
 		for i, item := range tasksByDay[day] {
-			m.lists[day].InsertItem(i, item)
+			m.board.Lists[day].InsertItem(i, item)
 		}
 	}
 }
 
 func (m model) saveTasks() {
 	var tasks []scheduled.Task
-	for _, list := range m.lists {
+	for _, list := range m.board.Lists {
 		for i, item := range list.Items() {
 			t := item.(scheduled.Task)
 			t.Pos = i
@@ -386,10 +379,10 @@ func (m model) setWeek(week int) model {
 	for i := Inbox; i <= Sunday; i++ {
 		monday := date.GetMondayOfWeek(m.week)
 		if i == Inbox {
-			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
+			m.board.Lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
 		} else {
 			day := monday.AddDate(0, 0, i-1)
-			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
+			m.board.Lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
 		}
 	}
 	return m
@@ -401,7 +394,7 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 		model.form.WithHeight(h).WithWidth(w / 2)
 		return model.form.View()
 	}
-	if list, exists := model.lists[panelID]; exists {
+	if list, exists := model.board.Lists[panelID]; exists {
 		list.Model.SetSize(w, h)
 		return list.Model.View()
 	}
@@ -457,7 +450,7 @@ func main() {
 		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
 		l.SetShowStatusBar(false)
 		l.SetShowHelp(false)
-		m.lists[i] = scheduled.NewListModel(l)
+		m.board.Lists[i] = board.NewListModel(l)
 	}
 	_, w := time.Now().ISOWeek()
 	m = m.setWeek(w)
@@ -466,7 +459,7 @@ func main() {
 	// Deselect all lists except the focused one (Inbox)
 	for i := Inbox; i <= Sunday; i++ {
 		if i != Inbox {
-			m.lists[i].Deselect()
+			m.board.Lists[i].Deselect()
 		}
 	}
 

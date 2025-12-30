@@ -1,6 +1,9 @@
-package scheduled
+package board
 
-import "github.com/charmbracelet/bubbles/list"
+import (
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/rwirdemann/scheduled"
+)
 
 type ListModel struct {
 	list.Model
@@ -31,7 +34,7 @@ func (lm *ListModel) MoveItemUp() bool {
 	if selected == nil {
 		return false
 	}
-	t := selected.(Task)
+	t := selected.(scheduled.Task)
 	lm.RemoveItem(lm.Index())
 	lm.InsertItem(lm.Index()-1, t)
 	lm.Select(lm.Index() - 1)
@@ -46,7 +49,7 @@ func (lm *ListModel) MoveItemDown() bool {
 	if selected == nil {
 		return false
 	}
-	t := selected.(Task)
+	t := selected.(scheduled.Task)
 	lm.RemoveItem(lm.Index())
 	lm.InsertItem(lm.Index()+1, t)
 	lm.Select(lm.Index() + 1)
@@ -58,7 +61,7 @@ func (lm *ListModel) ToggleDone() bool {
 	if selected == nil {
 		return false
 	}
-	t := selected.(Task)
+	t := selected.(scheduled.Task)
 	t.Done = !t.Done
 	idx := lm.Index()
 	lm.RemoveItem(idx)

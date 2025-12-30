@@ -3,23 +3,23 @@ package scheduled
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	ShiftRight key.Binding
-	ShiftLeft  key.Binding
-	ShiftUp    key.Binding
-	ShiftDown  key.Binding
-	Right      key.Binding
-	Left       key.Binding
-	New        key.Binding
-	Esc        key.Binding
-	Back       key.Binding
-	Space      key.Binding
-	Help       key.Binding
-	Enter      key.Binding
-	Quit       key.Binding
-	Num        key.Binding
-	AltT       key.Binding
-	AltI       key.Binding
-	Contexts   key.Binding
+	ShiftRight  key.Binding
+	ShiftLeft   key.Binding
+	ShiftUp     key.Binding
+	ShiftDown   key.Binding
+	Right       key.Binding
+	Left        key.Binding
+	New         key.Binding
+	Esc         key.Binding
+	Back        key.Binding
+	Space       key.Binding
+	Help        key.Binding
+	Enter       key.Binding
+	Quit        key.Binding
+	Num         key.Binding
+	MoveToToday key.Binding
+	MoveToInbox key.Binding
+	Contexts    key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
@@ -34,7 +34,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.New, k.Enter, k.Space, k.Back},
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
-		{k.Num, k.AltT, k.AltI, k.Esc},
+		{k.Num, k.MoveToToday, k.MoveToInbox, k.Esc},
 		{k.Right, k.Left},
 		{k.Help, k.Contexts, k.Quit},
 	}
@@ -95,15 +95,15 @@ var Keys = KeyMap{
 	),
 	Num: key.NewBinding(
 		key.WithKeys("1", "2", "3", "4", "5", "6", "7"),
-		key.WithHelp("{i}", "focus day {i}"),
+		key.WithHelp("{num}", "focus day {num}"),
 	),
-	AltT: key.NewBinding(
-		key.WithKeys("alt+t"),
-		key.WithHelp("alt+t", "move task to today"),
+	MoveToToday: key.NewBinding(
+		key.WithKeys("t"),
+		key.WithHelp("t", "move task to today"),
 	),
-	AltI: key.NewBinding(
-		key.WithKeys("alt+i"),
-		key.WithHelp("alt+i", "move task inbox"),
+	MoveToInbox: key.NewBinding(
+		key.WithKeys("i"),
+		key.WithHelp("i", "move task inbox"),
 	),
 	Contexts: key.NewBinding(
 		key.WithKeys("c"),
