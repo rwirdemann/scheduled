@@ -234,9 +234,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				if l, exists := m.board.Lists[focusedPanel.ID]; exists {
-					l.ToggleDone()
-				}
+				m.board.ToggleDone(focusedPanel.ID)
 			}
 		case key.Matches(msg, m.keys.Back):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {

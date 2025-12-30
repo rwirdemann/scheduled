@@ -99,6 +99,12 @@ func (m *Model) MoveDown(listIndex int) {
 	}
 }
 
+func (m *Model) ToggleDone(listIndex int) {
+	if l, exists := m.Lists[listIndex]; exists {
+		l.ToggleDone()
+	}
+}
+
 type repository interface {
 	Load() []scheduled.Task
 	Save(tasks []scheduled.Task)
