@@ -21,11 +21,16 @@ const (
 
 type Model struct {
 	repository repository
+	LastFocus  int
 	Lists      map[int]*ListModel
 }
 
 func NewModel(repository repository) *Model {
-	m := &Model{repository: repository, Lists: make(map[int]*ListModel)}
+	m := &Model{
+		repository: repository,
+		LastFocus:  Inbox,
+		Lists:      make(map[int]*ListModel),
+	}
 	defaultDelegate := list.NewDefaultDelegate()
 	defaultDelegate.ShowDescription = false
 	defaultDelegate.SetSpacing(0)
@@ -135,6 +140,19 @@ func (m *Model) Update(listIndex int, msg tea.Msg) tea.Cmd {
 		return cmd
 	}
 	return nil
+}
+
+// DeselectAndRestoreIndex deselects the currently focused list and restores
+// the selection of the newly focused list.
+func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
+	if currentList, exists := m.Lists[m.LastFocus]; exists {
+		currentList.SaveIndex()
+		currentList.Deselect()
+		m.LastFocus = focusedPanelID
+	}
+	if nextList, exists := m.Lists[focusedPanelID]; exists {
+		nextList.RestoreIndex()
+	}
 }
 
 type repository interface {

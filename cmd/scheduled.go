@@ -69,7 +69,6 @@ type model struct {
 
 	form           *huh.Form
 	taskRepository taskRepository
-	lastFocus      int
 
 	showHelp bool
 	keys     scheduled.KeyMap
@@ -101,7 +100,6 @@ func newModel(root panel.Model) model {
 	m := model{
 		root:            root,
 		taskRepository:  file.Repository{},
-		lastFocus:       Inbox,
 		keys:            scheduled.Keys,
 		help:            h,
 		showHelp:        true,
@@ -130,16 +128,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				title := m.form.GetString("title")
 				context := m.form.GetInt("context")
 				if m.mode == modeEdit {
-					m.board.UpdateTask(m.lastFocus, title, context)
+					m.board.UpdateTask(m.board.LastFocus, title, context)
 				}
 				if m.mode == modeNew {
-					m.board.CreateTask(m.lastFocus, title, context)
+					m.board.CreateTask(m.board.LastFocus, title, context)
 				}
 				m.root = m.root.Hide(panelEdit)
 				if m.showHelp {
 					m.root = m.root.Show(panelHelp)
 				}
-				m.root = m.root.SetFocus(m.lastFocus)
+				m.root = m.root.SetFocus(m.board.LastFocus)
 				m.mode = modeNormal
 			}
 			if f.State == huh.StateAborted {
@@ -147,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.showHelp {
 					m.root = m.root.Show(panelHelp)
 				}
-				m.root = m.root.SetFocus(m.lastFocus)
+				m.root = m.root.SetFocus(m.board.LastFocus)
 				m.mode = modeNormal
 			}
 		}
@@ -160,7 +158,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Contexts), key.Matches(msg, m.keys.Esc):
 				m.mode = modeNormal
 				m.root = m.root.Hide(panelLeft)
-				m.root = m.root.SetFocus(m.lastFocus)
+				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
 			case key.Matches(msg, m.keys.Enter):
 				m.mode = modeNormal
@@ -168,7 +166,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedContext = i.(scheduled.Context)
 				m.root = m.root.Hide(panelLeft)
 				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name))
-				m.root = m.root.SetFocus(m.lastFocus)
+				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
 			}
 		}
@@ -230,7 +228,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Esc):
 			m.root = m.root.Hide(panelEdit)
 			m.root = m.root.SetFocus(Inbox)
-			m = m.saveAndRestoreSelection(Inbox)
+			m.board.DeselectAndRestoreIndex(Inbox)
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
@@ -254,7 +252,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			key := msg.String()
 			panelNum, _ := strconv.Atoi(key)
 			m.root = m.root.SetFocus(panelNum)
-			m = m.saveAndRestoreSelection(panelNum)
+			m.board.DeselectAndRestoreIndex(panelNum)
 			return m, nil
 		case key.Matches(msg, m.keys.MoveToToday):
 			today := time.Now().Weekday()
@@ -277,28 +275,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// find focused panel and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
-		m = m.saveAndRestoreSelection(focusedPanel.ID)
+		m.board.DeselectAndRestoreIndex(focusedPanel.ID)
 		cmd = m.board.Update(focusedPanel.ID, msg)
 		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)
-}
-
-func (m model) saveAndRestoreSelection(focusedPanelID int) model {
-	if m.lastFocus != focusedPanelID && focusedPanelID != panelEdit {
-		// Save index and deselect previously focused list
-		if prevList, exists := m.board.Lists[m.lastFocus]; exists {
-			prevList.SaveIndex()
-			prevList.Deselect()
-		}
-		// Restore index of newly focused list
-		if currList, exists := m.board.Lists[focusedPanelID]; exists {
-			currList.RestoreIndex()
-		}
-		m.lastFocus = focusedPanelID
-	}
-	return m
 }
 
 func (m model) moveTask(from, to int) model {
