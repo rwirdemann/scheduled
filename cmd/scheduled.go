@@ -242,9 +242,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.Enter):
 			focusedPanel, _ := m.root.Focused()
-			l := m.board.Lists[focusedPanel.ID]
-			if selected := l.SelectedItem(); selected != nil {
-				t := selected.(scheduled.Task)
+			if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
 				m.form = scheduled.CreateTaskForm(&t)
 				m.root = m.root.Hide(panelHelp)
 				m.root = m.root.Show(panelEdit)
