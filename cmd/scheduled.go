@@ -191,7 +191,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case key.Matches(msg, m.keys.Quit):
-			m.saveTasks()
+			m.board.SaveTasks()
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Right):
 			if m.week < 52 {
@@ -282,18 +282,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
-}
-
-func (m model) saveTasks() {
-	var tasks []scheduled.Task
-	for _, list := range m.board.Lists {
-		for i, item := range list.Items() {
-			t := item.(scheduled.Task)
-			t.Pos = i
-			tasks = append(tasks, t)
-		}
-	}
-	m.taskRepository.Save(tasks)
 }
 
 func (m model) View() string {

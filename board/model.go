@@ -175,6 +175,18 @@ func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
 	}
 }
 
+func (m *Model) SaveTasks() {
+	var tasks []scheduled.Task
+	for _, list := range m.Lists {
+		for i, item := range list.Items() {
+			t := item.(scheduled.Task)
+			t.Pos = i
+			tasks = append(tasks, t)
+		}
+	}
+	m.repository.Save(tasks)
+}
+
 type repository interface {
 	Load() []scheduled.Task
 	Save(tasks []scheduled.Task)
