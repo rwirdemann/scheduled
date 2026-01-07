@@ -207,11 +207,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.ShiftLeft):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m = m.moveTask(focusedPanel.ID, focusedPanel.ID-1)
+				m.board.MoveTask(focusedPanel.ID, focusedPanel.ID-1)
 			}
 		case key.Matches(msg, m.keys.ShiftRight):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m = m.moveTask(focusedPanel.ID, focusedPanel.ID+1)
+				m.board.MoveTask(focusedPanel.ID, focusedPanel.ID+1)
 			}
 		case key.Matches(msg, m.keys.ShiftUp):
 			focusedPanel, _ := m.root.Focused()
@@ -258,11 +258,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.MoveToToday):
 			today := time.Now().Weekday()
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m = m.moveTask(focusedPanel.ID, int(today))
+				m.board.MoveTask(focusedPanel.ID, int(today))
 			}
 		case key.Matches(msg, m.keys.MoveToInbox):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m = m.moveTask(focusedPanel.ID, Inbox)
+				m.board.MoveTask(focusedPanel.ID, Inbox)
 			}
 		case key.Matches(msg, m.keys.Contexts):
 			m.mode = modeContexts
@@ -282,23 +282,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
-}
-
-func (m model) moveTask(from, to int) model {
-	if _, exists := m.board.Lists[to]; !exists {
-		to = 0
-	}
-	if from == to {
-		return m
-	}
-
-	if item := m.board.Lists[from].SelectedItem(); item != nil {
-		t := item.(scheduled.Task)
-		t.Day = to
-		m.board.Lists[from].RemoveItem(m.board.Lists[from].Index())
-		m.board.Lists[to].InsertItem(len(m.board.Lists[to].Items()), t)
-	}
-	return m
 }
 
 func (m model) saveTasks() {
@@ -364,7 +347,7 @@ func renderLeftPanel(m tea.Model, panelID int, w, h int) string {
 }
 
 func main() {
-	row1 := panel.New().WithId(20).WithRatio(44).WithLayout(panel.LayoutDirectionHorizontal)
+	row1 := panel.New().WithId(20).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		if i == 0 {
@@ -373,13 +356,13 @@ func main() {
 		row1 = row1.Append(p)
 	}
 
-	row2 := panel.New().WithId(30).WithRatio(44).WithLayout(panel.LayoutDirectionHorizontal)
+	row2 := panel.New().WithId(30).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := 4; i < 8; i++ {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		row2 = row2.Append(p)
 	}
-	editPanel := panel.New().WithId(panelEdit).WithRatio(12).WithContent(renderPanel).WithBorder().WithVisible(false)
-	helpPanel := panel.New().WithId(panelHelp).WithRatio(12).WithContent(renderHelp).WithBorder().WithVisible(true)
+	editPanel := panel.New().WithId(panelEdit).WithRatio(16).WithContent(renderPanel).WithBorder().WithVisible(false)
+	helpPanel := panel.New().WithId(panelHelp).WithRatio(16).WithContent(renderHelp).WithBorder().WithVisible(true)
 
 	rightPanel := panel.New().WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
@@ -389,7 +372,7 @@ func main() {
 
 	leftPanel := panel.New().WithId(panelLeft).WithRatio(10).WithBorder().WithVisible(false).WithContent(renderLeftPanel)
 
-	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionHorizontal).
+	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionVertical).
 		Append(leftPanel).
 		Append(rightPanel)
 

@@ -123,6 +123,26 @@ func (m *Model) DeleteTask(listIndex int) {
 		}
 	}
 }
+func (m *Model) MoveTask(from, to int) {
+	if from < Inbox || from > Sunday {
+		return
+	}
+
+	if to < Inbox || to > Sunday {
+		return
+	}
+
+	if from == to {
+		return
+	}
+
+	if item := m.Lists[from].SelectedItem(); item != nil {
+		t := item.(scheduled.Task)
+		t.Day = to
+		m.Lists[from].RemoveItem(m.Lists[from].Index())
+		m.Lists[to].InsertItem(len(m.Lists[to].Items()), t)
+	}
+}
 
 func (m *Model) GetSelectedTask(listIndex int) (scheduled.Task, bool) {
 	if l, exists := m.Lists[listIndex]; exists {
@@ -148,8 +168,8 @@ func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
 	if currentList, exists := m.Lists[m.LastFocus]; exists {
 		currentList.SaveIndex()
 		currentList.Deselect()
-		m.LastFocus = focusedPanelID
 	}
+	m.LastFocus = focusedPanelID
 	if nextList, exists := m.Lists[focusedPanelID]; exists {
 		nextList.RestoreIndex()
 	}
