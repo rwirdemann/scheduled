@@ -335,7 +335,7 @@ func renderLeftPanel(m tea.Model, panelID int, w, h int) string {
 }
 
 func main() {
-	row1 := panel.New().WithId(20).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
+	row1 := panel.New().WithId(20).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		if i == 0 {
@@ -344,13 +344,13 @@ func main() {
 		row1 = row1.Append(p)
 	}
 
-	row2 := panel.New().WithId(30).WithRatio(42).WithLayout(panel.LayoutDirectionHorizontal)
+	row2 := panel.New().WithId(30).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := 4; i < 8; i++ {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		row2 = row2.Append(p)
 	}
-	editPanel := panel.New().WithId(panelEdit).WithRatio(16).WithContent(renderPanel).WithBorder().WithVisible(false)
-	helpPanel := panel.New().WithId(panelHelp).WithRatio(16).WithContent(renderHelp).WithBorder().WithVisible(true)
+	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false)
+	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true)
 
 	rightPanel := panel.New().WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
