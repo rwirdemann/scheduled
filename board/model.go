@@ -1,11 +1,14 @@
 package board
 
 import (
+	"fmt"
 	"sort"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rwirdemann/scheduled"
+	"github.com/rwirdemann/scheduled/date"
 )
 
 const (
@@ -19,17 +22,31 @@ const (
 	Sunday    = 7
 )
 
+var days = map[int]string{
+	Inbox:     "Inbox",
+	Monday:    "Monday",
+	Tuesday:   "Tuesday",
+	Wednesday: "Wednesday",
+	Thursday:  "Thursday",
+	Friday:    "Friday",
+	Saturday:  "Saturday",
+	Sunday:    "Sunday",
+}
+
 type Model struct {
-	repository repository
-	LastFocus  int
-	Lists      map[int]*ListModel
+	repository      repository
+	LastFocus       int
+	Lists           map[int]*ListModel
+	week            int
+	selectedContext scheduled.Context
 }
 
 func NewModel(repository repository) *Model {
 	m := &Model{
-		repository: repository,
-		LastFocus:  Inbox,
-		Lists:      make(map[int]*ListModel),
+		repository:      repository,
+		LastFocus:       Inbox,
+		selectedContext: scheduled.ContextNone,
+		Lists:           make(map[int]*ListModel),
 	}
 	defaultDelegate := list.NewDefaultDelegate()
 	defaultDelegate.ShowDescription = false
@@ -49,7 +66,30 @@ func NewModel(repository repository) *Model {
 		}
 	}
 
+	_, w := time.Now().ISOWeek()
+	m.setWeek(w)
+
 	return m
+}
+
+func (m *Model) SetContext(context scheduled.Context) {
+	m.selectedContext = context
+}
+
+func (m *Model) DecWeek() {
+	if m.week > 1 {
+		m.setWeek(m.week - 1)
+	} else {
+		m.setWeek(52)
+	}
+}
+
+func (m *Model) IncWeek() {
+	if m.week < 52 {
+		m.setWeek(m.week + 1)
+	} else {
+		m.setWeek(1)
+	}
 }
 
 func (m *Model) loadTasks() {
@@ -90,7 +130,7 @@ func (m *Model) CreateTask(listIndex int, name string, context int) {
 }
 
 func (m *Model) SetListTitle(listIndex int, title string) {
-	m.Lists[listIndex].Title = title
+	m.Lists[listIndex].Title = fmt.Sprintf("%s - %s", title, m.selectedContext.Name)
 }
 
 func (m *Model) MoveUp(listIndex int) {
@@ -185,6 +225,19 @@ func (m *Model) SaveTasks() {
 		}
 	}
 	m.repository.Save(tasks)
+}
+
+func (m *Model) setWeek(week int) {
+	m.week = week
+	for i := Inbox; i <= Sunday; i++ {
+		monday := date.GetMondayOfWeek(m.week)
+		if i == Inbox {
+			m.Lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
+		} else {
+			day := monday.AddDate(0, 0, i-1)
+			m.Lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
+		}
+	}
 }
 
 type repository interface {

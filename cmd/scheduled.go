@@ -15,20 +15,10 @@ import (
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/board"
-	"github.com/rwirdemann/scheduled/date"
 	"github.com/rwirdemann/scheduled/file"
 )
 
 const (
-	Inbox     = 0
-	Monday    = 1
-	Tuesday   = 2
-	Wednesday = 3
-	Thursday  = 4
-	Friday    = 5
-	Saturday  = 6
-	Sunday    = 7
-
 	panelEdit = 40
 	panelHelp = 50
 	panelLeft = 60
@@ -42,17 +32,6 @@ const (
 	modeNew
 	modeContexts
 )
-
-var days = map[int]string{
-	Inbox:     "Inbox",
-	Monday:    "Monday",
-	Tuesday:   "Tuesday",
-	Wednesday: "Wednesday",
-	Thursday:  "Thursday",
-	Friday:    "Friday",
-	Saturday:  "Saturday",
-	Sunday:    "Sunday",
-}
 
 type taskRepository interface {
 	Load() []scheduled.Task
@@ -76,8 +55,7 @@ type model struct {
 	termWidth  int
 	termHeight int
 
-	contextList     list.Model
-	selectedContext scheduled.Context
+	contextList list.Model
 
 	mode mode
 }
@@ -97,18 +75,15 @@ func newModel(root panel.Model) model {
 	contextList.Title = "Contexts"
 
 	m := model{
-		root:            root,
-		taskRepository:  file.Repository{},
-		keys:            scheduled.Keys,
-		help:            h,
-		showHelp:        true,
-		mode:            modeNormal,
-		contextList:     contextList,
-		selectedContext: scheduled.ContextNone,
-		board:           board.NewModel(file.Repository{}),
+		root:           root,
+		taskRepository: file.Repository{},
+		keys:           scheduled.Keys,
+		help:           h,
+		showHelp:       true,
+		mode:           modeNormal,
+		contextList:    contextList,
+		board:          board.NewModel(file.Repository{}),
 	}
-	_, w := time.Now().ISOWeek()
-	m = m.setWeek(w)
 	return m
 }
 
@@ -164,9 +139,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Enter):
 				m.mode = modeNormal
 				i := m.contextList.SelectedItem()
-				m.selectedContext = i.(scheduled.Context)
+				m.board.SetContext(i.(scheduled.Context))
 				m.root = m.root.Hide(panelLeft)
-				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name))
+				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d)", m.week))
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
 			}
@@ -194,17 +169,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.board.SaveTasks()
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Right):
-			if m.week < 52 {
-				return m.setWeek(m.week + 1), nil
-			} else {
-				return m.setWeek(1), nil
-			}
+			m.board.IncWeek()
+			return m, nil
 		case key.Matches(msg, m.keys.Left):
-			if m.week > 1 {
-				return m.setWeek(m.week - 1), nil
-			} else {
-				return m.setWeek(52), nil
-			}
+			m.board.DecWeek()
+			return m, nil
 		case key.Matches(msg, m.keys.ShiftLeft):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 				m.board.MoveTask(focusedPanel.ID, focusedPanel.ID-1)
@@ -228,8 +197,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.form.Init()
 		case key.Matches(msg, m.keys.Esc):
 			m.root = m.root.Hide(panelEdit)
-			m.root = m.root.SetFocus(Inbox)
-			m.board.DeselectAndRestoreIndex(Inbox)
+			m.root = m.root.SetFocus(board.Inbox)
+			m.board.DeselectAndRestoreIndex(board.Inbox)
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
@@ -262,7 +231,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.MoveToInbox):
 			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.board.MoveTask(focusedPanel.ID, Inbox)
+				m.board.MoveTask(focusedPanel.ID, board.Inbox)
 			}
 		case key.Matches(msg, m.keys.Contexts):
 			m.mode = modeContexts
@@ -294,20 +263,6 @@ func (m model) View() string {
 	}
 
 	return m.root.View(m)
-}
-
-func (m model) setWeek(week int) model {
-	m.week = week
-	for i := Inbox; i <= Sunday; i++ {
-		monday := date.GetMondayOfWeek(m.week)
-		if i == Inbox {
-			m.board.Lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
-		} else {
-			day := monday.AddDate(0, 0, i-1)
-			m.board.Lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
-		}
-	}
-	return m
 }
 
 func renderPanel(m tea.Model, panelID int, w, h int) string {
