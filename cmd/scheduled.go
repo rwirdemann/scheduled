@@ -304,8 +304,8 @@ func main() {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		row2 = row2.Append(p)
 	}
-	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(4)
-	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true).WithMaxHeight(4)
+	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(6)
+	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true).WithMaxHeight(6)
 
 	rightPanel := panel.New().WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
