@@ -1,7 +1,7 @@
 package scheduled
 
 var (
-	ContextNone       = Context{ID: 1, Name: "all"}
+	ContextNone       = Context{ID: 1, Name: "none"}
 	ContextPrivate    = Context{ID: 2, Name: "private"}
 	ContextiNeonpulse = Context{ID: 3, Name: "neonpulse"}
 )
