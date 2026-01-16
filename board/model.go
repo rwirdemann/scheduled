@@ -226,6 +226,13 @@ func (m *Model) SaveTasks() {
 	}
 	m.repository.Save(tasks)
 }
+func (m *Model) Render(panelID int, w, h int) string {
+	if list, exists := m.Lists[panelID]; exists {
+		list.Model.SetSize(w, h)
+		return list.Model.View()
+	}
+	return ""
+}
 
 func (m *Model) setWeek(week int) {
 	m.week = week

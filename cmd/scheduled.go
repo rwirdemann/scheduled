@@ -273,11 +273,7 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 		model.form.WithHeight(h).WithWidth(w / 2)
 		return model.form.View()
 	}
-	if list, exists := model.board.Lists[panelID]; exists {
-		list.Model.SetSize(w, h)
-		return list.Model.View()
-	}
-	return ""
+	return model.board.Render(panelID, w, h)
 }
 
 func renderHelp(m tea.Model, panelID int, w, h int) string {
@@ -312,15 +308,15 @@ func main() {
 	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(6)
 	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true).WithMaxHeight(6)
 
-	rightPanel := panel.New().WithRatio(90).WithLayout(panel.LayoutDirectionVertical).
+	rightPanel := panel.New().WithRatio(88).WithLayout(panel.LayoutDirectionVertical).
 		Append(row1).
 		Append(row2).
 		Append(editPanel).
 		Append(helpPanel)
 
-	leftPanel := panel.New().WithId(panelLeft).WithRatio(10).WithBorder().WithVisible(false).WithContent(renderLeftPanel)
+	leftPanel := panel.New().WithId(panelLeft).WithRatio(12).WithBorder().WithVisible(false).WithContent(renderLeftPanel)
 
-	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionVertical).
+	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionHorizontal).
 		Append(leftPanel).
 		Append(rightPanel)
 
