@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -60,7 +61,7 @@ type model struct {
 	mode mode
 }
 
-func newModel(root panel.Model) model {
+func newModel(root panel.Model, tasksFile string) model {
 	h := help.New()
 	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
@@ -74,15 +75,16 @@ func newModel(root panel.Model) model {
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
+	repo := file.NewRepository(tasksFile)
 	m := model{
 		root:           root,
-		taskRepository: file.Repository{},
+		taskRepository: repo,
 		keys:           scheduled.Keys,
 		help:           h,
 		showHelp:       true,
 		mode:           modeNormal,
 		contextList:    contextList,
-		board:          board.NewModel(file.Repository{}),
+		board:          board.NewModel(repo),
 	}
 	return m
 }
@@ -290,6 +292,9 @@ func renderLeftPanel(m tea.Model, panelID int, w, h int) string {
 }
 
 func main() {
+	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
+	flag.Parse()
+
 	row1 := panel.New().WithId(20).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
@@ -319,7 +324,7 @@ func main() {
 		Append(leftPanel).
 		Append(rightPanel)
 
-	m := newModel(rootPanel)
+	m := newModel(rootPanel, *tasksFile)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("there's been an error: %v", err)

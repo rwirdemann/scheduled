@@ -26,12 +26,20 @@ func init() {
 }
 
 type Repository struct {
+	filename string
+}
+
+func NewRepository(filename string) Repository {
+	if filename == "" {
+		filename = "tasks.json"
+	}
+	return Repository{filename: filename}
 }
 
 func (t Repository) Load() []scheduled.Task {
-	file, err := os.Open(path.Join(base, "tasks.json"))
+	file, err := os.Open(path.Join(base, t.filename))
 	if err != nil {
-		log.Printf("Failed to open tasks.json: %v", err)
+		log.Printf("Failed to open %s: %v", t.filename, err)
 		return []scheduled.Task{}
 	}
 	defer file.Close()
@@ -42,16 +50,16 @@ func (t Repository) Load() []scheduled.Task {
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&tasks); err != nil {
-		log.Printf("Failed to decode tasks.json: %v", err)
+		log.Printf("Failed to decode %s: %v", t.filename, err)
 		return []scheduled.Task{}
 	}
 
 	return tasks.Tasks
 }
 func (t Repository) Save(tasks []scheduled.Task) {
-	file, err := os.Create(path.Join(base, "tasks.json"))
+	file, err := os.Create(path.Join(base, t.filename))
 	if err != nil {
-		log.Fatalf("Failed to create tasks.json: %v", err)
+		log.Fatalf("Failed to create %s: %v", t.filename, err)
 	}
 	defer file.Close()
 
@@ -63,6 +71,6 @@ func (t Repository) Save(tasks []scheduled.Task) {
 
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
-		log.Fatalf("Failed to encode tasks to tasks.json: %v", err)
+		log.Fatalf("Failed to encode tasks to %s: %v", t.filename, err)
 	}
 }
