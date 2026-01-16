@@ -36,7 +36,7 @@ var days = map[int]string{
 type Model struct {
 	repository      repository
 	LastFocus       int
-	Lists           map[int]*ListModel
+	lists           map[int]*ListModel
 	week            int
 	selectedContext scheduled.Context
 }
@@ -46,7 +46,7 @@ func NewModel(repository repository) *Model {
 		repository:      repository,
 		LastFocus:       Inbox,
 		selectedContext: scheduled.ContextNone,
-		Lists:           make(map[int]*ListModel),
+		lists:           make(map[int]*ListModel),
 	}
 	defaultDelegate := list.NewDefaultDelegate()
 	defaultDelegate.ShowDescription = false
@@ -55,14 +55,14 @@ func NewModel(repository repository) *Model {
 		l := list.New([]list.Item{}, defaultDelegate, 0, 0)
 		l.SetShowStatusBar(false)
 		l.SetShowHelp(false)
-		m.Lists[i] = NewListModel(l)
+		m.lists[i] = NewListModel(l)
 	}
 	m.loadTasks()
 
 	// Deselect all lists except the focused one (Inbox)
 	for i := Inbox; i <= Sunday; i++ {
 		if i != Inbox {
-			m.Lists[i].Deselect()
+			m.lists[i].Deselect()
 		}
 	}
 
@@ -70,6 +70,10 @@ func NewModel(repository repository) *Model {
 	m.setWeek(w)
 
 	return m
+}
+
+func (m *Model) Week() int {
+	return m.week
 }
 
 func (m *Model) SetContext(context scheduled.Context) {
@@ -106,15 +110,15 @@ func (m *Model) loadTasks() {
 		})
 	}
 
-	for day := range m.Lists {
+	for day := range m.lists {
 		for i, item := range tasksByDay[day] {
-			m.Lists[day].InsertItem(i, item)
+			m.lists[day].InsertItem(i, item)
 		}
 	}
 }
 
-func (m *Model) UpdateTask(listIndex int, name string, context int) {
-	list := m.Lists[listIndex]
+func (m *Model) UpdateTask(name string, context int) {
+	list := m.lists[m.LastFocus]
 	task := list.SelectedItem().(scheduled.Task)
 	task.Name = name
 	task.Context = context
@@ -123,36 +127,36 @@ func (m *Model) UpdateTask(listIndex int, name string, context int) {
 	list.InsertItem(index, task)
 }
 
-func (m *Model) CreateTask(listIndex int, name string, context int) {
-	t := scheduled.Task{Name: name, Context: context, Day: listIndex}
-	list := m.Lists[listIndex]
+func (m *Model) CreateTask(name string, context int) {
+	t := scheduled.Task{Name: name, Context: context, Day: m.LastFocus}
+	list := m.lists[m.LastFocus]
 	list.InsertItem(len(list.Items()), t)
 }
 
 func (m *Model) SetListTitle(listIndex int, title string) {
-	m.Lists[listIndex].Title = fmt.Sprintf("%s - %s", title, m.selectedContext.Name)
+	m.lists[listIndex].Title = fmt.Sprintf("%s - %s", title, m.selectedContext.Name)
 }
 
 func (m *Model) MoveUp(listIndex int) {
-	if l, exists := m.Lists[listIndex]; exists {
+	if l, exists := m.lists[listIndex]; exists {
 		l.MoveItemUp()
 	}
 }
 
 func (m *Model) MoveDown(listIndex int) {
-	if l, exists := m.Lists[listIndex]; exists {
+	if l, exists := m.lists[listIndex]; exists {
 		l.MoveItemDown()
 	}
 }
 
 func (m *Model) ToggleDone(listIndex int) {
-	if l, exists := m.Lists[listIndex]; exists {
+	if l, exists := m.lists[listIndex]; exists {
 		l.ToggleDone()
 	}
 }
 
 func (m *Model) DeleteTask(listIndex int) {
-	if l, exists := m.Lists[listIndex]; exists {
+	if l, exists := m.lists[listIndex]; exists {
 		i := l.SelectedItem()
 		if i == nil {
 			return
@@ -176,16 +180,16 @@ func (m *Model) MoveTask(from, to int) {
 		return
 	}
 
-	if item := m.Lists[from].SelectedItem(); item != nil {
+	if item := m.lists[from].SelectedItem(); item != nil {
 		t := item.(scheduled.Task)
 		t.Day = to
-		m.Lists[from].RemoveItem(m.Lists[from].Index())
-		m.Lists[to].InsertItem(len(m.Lists[to].Items()), t)
+		m.lists[from].RemoveItem(m.lists[from].Index())
+		m.lists[to].InsertItem(len(m.lists[to].Items()), t)
 	}
 }
 
 func (m *Model) GetSelectedTask(listIndex int) (scheduled.Task, bool) {
-	if l, exists := m.Lists[listIndex]; exists {
+	if l, exists := m.lists[listIndex]; exists {
 		if i := l.SelectedItem(); i != nil {
 			return i.(scheduled.Task), true
 		}
@@ -194,9 +198,9 @@ func (m *Model) GetSelectedTask(listIndex int) (scheduled.Task, bool) {
 }
 
 func (m *Model) Update(listIndex int, msg tea.Msg) tea.Cmd {
-	if l, exists := m.Lists[listIndex]; exists {
+	if l, exists := m.lists[listIndex]; exists {
 		updated, cmd := l.Update(msg)
-		m.Lists[listIndex].Model = updated
+		m.lists[listIndex].Model = updated
 		return cmd
 	}
 	return nil
@@ -205,19 +209,19 @@ func (m *Model) Update(listIndex int, msg tea.Msg) tea.Cmd {
 // DeselectAndRestoreIndex deselects the currently focused list and restores
 // the selection of the newly focused list.
 func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
-	if currentList, exists := m.Lists[m.LastFocus]; exists {
+	if currentList, exists := m.lists[m.LastFocus]; exists {
 		currentList.SaveIndex()
 		currentList.Deselect()
 	}
 	m.LastFocus = focusedPanelID
-	if nextList, exists := m.Lists[focusedPanelID]; exists {
+	if nextList, exists := m.lists[focusedPanelID]; exists {
 		nextList.RestoreIndex()
 	}
 }
 
 func (m *Model) SaveTasks() {
 	var tasks []scheduled.Task
-	for _, list := range m.Lists {
+	for _, list := range m.lists {
 		for i, item := range list.Items() {
 			t := item.(scheduled.Task)
 			t.Pos = i
@@ -227,7 +231,7 @@ func (m *Model) SaveTasks() {
 	m.repository.Save(tasks)
 }
 func (m *Model) Render(panelID int, w, h int) string {
-	if list, exists := m.Lists[panelID]; exists {
+	if list, exists := m.lists[panelID]; exists {
 		list.Model.SetSize(w, h)
 		return list.Model.View()
 	}
@@ -239,10 +243,10 @@ func (m *Model) setWeek(week int) {
 	for i := Inbox; i <= Sunday; i++ {
 		monday := date.GetMondayOfWeek(m.week)
 		if i == Inbox {
-			m.Lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
+			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
 		} else {
 			day := monday.AddDate(0, 0, i-1)
-			m.Lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
+			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
 		}
 	}
 }

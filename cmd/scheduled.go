@@ -42,7 +42,6 @@ type taskRepository interface {
 type model struct {
 	root  panel.Model
 	focus int
-	week  int
 
 	board *board.Model
 
@@ -106,10 +105,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				title := m.form.GetString("title")
 				context := m.form.GetInt("context")
 				if m.mode == modeEdit {
-					m.board.UpdateTask(m.board.LastFocus, title, context)
+					m.board.UpdateTask(title, context)
 				}
 				if m.mode == modeNew {
-					m.board.CreateTask(m.board.LastFocus, title, context)
+					m.board.CreateTask(title, context)
 				}
 				m.root = m.root.Hide(panelEdit)
 				if m.showHelp {
@@ -143,7 +142,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				i := m.contextList.SelectedItem()
 				m.board.SetContext(i.(scheduled.Context))
 				m.root = m.root.Hide(panelLeft)
-				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d)", m.week))
+				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d)", m.board.Week()))
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
 			}
