@@ -78,6 +78,9 @@ func (m *Model) Week() int {
 
 func (m *Model) SetContext(context scheduled.Context) {
 	m.selectedContext = context
+	for _, list := range m.lists {
+		list.SetContext(context)
+	}
 }
 
 func (m *Model) DecWeek() {
@@ -221,8 +224,15 @@ func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
 
 func (m *Model) SaveTasks() {
 	var tasks []scheduled.Task
-	for _, list := range m.lists {
-		for i, item := range list.Items() {
+	for _, ll := range m.lists {
+		var itemsToSave []list.Item
+		if ll.allItems != nil {
+			itemsToSave = ll.allItems
+		} else {
+			itemsToSave = ll.Items()
+		}
+
+		for i, item := range itemsToSave {
 			t := item.(scheduled.Task)
 			t.Pos = i
 			tasks = append(tasks, t)
@@ -230,6 +240,7 @@ func (m *Model) SaveTasks() {
 	}
 	m.repository.Save(tasks)
 }
+
 func (m *Model) Render(panelID int, w, h int) string {
 	if list, exists := m.lists[panelID]; exists {
 		list.Model.SetSize(w, h)
