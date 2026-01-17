@@ -135,9 +135,7 @@ func (m *Model) UpdateTask(name string, context int) {
 	if list.allItems != nil {
 		for i, item := range list.allItems {
 			t := item.(scheduled.Task)
-			if t.Name == oldTask.Name && t.Day == oldTask.Day &&
-				t.Context == oldTask.Context && t.Done == oldTask.Done &&
-				t.Desc == oldTask.Desc && t.Pos == oldTask.Pos {
+			if t.ID == oldTask.ID {
 				list.allItems[i] = task
 				break
 			}
@@ -192,9 +190,7 @@ func (m *Model) DeleteTask(listIndex int) {
 			if l.allItems != nil {
 				for idx, item := range l.allItems {
 					t := item.(scheduled.Task)
-					if t.Name == task.Name && t.Day == task.Day &&
-						t.Context == task.Context && t.Done == task.Done &&
-						t.Desc == task.Desc && t.Pos == task.Pos {
+					if t.ID == task.ID {
 						l.allItems = append(l.allItems[:idx], l.allItems[idx+1:]...)
 						break
 					}
@@ -227,9 +223,7 @@ func (m *Model) MoveTask(from, to int) {
 		if m.lists[from].allItems != nil {
 			for idx, item := range m.lists[from].allItems {
 				task := item.(scheduled.Task)
-				if task.Name == oldTask.Name && task.Day == oldTask.Day &&
-					task.Context == oldTask.Context && task.Done == oldTask.Done &&
-					task.Desc == oldTask.Desc && task.Pos == oldTask.Pos {
+				if task.ID == oldTask.ID {
 					m.lists[from].allItems = append(m.lists[from].allItems[:idx], m.lists[from].allItems[idx+1:]...)
 					break
 				}

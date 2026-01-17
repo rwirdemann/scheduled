@@ -131,9 +131,7 @@ func (lm *ListModel) ToggleDone() bool {
 	if lm.allItems != nil {
 		for i, item := range lm.allItems {
 			task := item.(scheduled.Task)
-			if task.Name == oldTask.Name && task.Day == oldTask.Day &&
-				task.Context == oldTask.Context && task.Done == oldTask.Done &&
-				task.Desc == oldTask.Desc && task.Pos == oldTask.Pos {
+			if task.ID == oldTask.ID {
 				lm.allItems[i] = t
 				break
 			}
