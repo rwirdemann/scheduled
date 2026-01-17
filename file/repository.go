@@ -24,6 +24,16 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// create empty context file if it does not exist
+	_, err = os.Stat(path.Join(base, "contexts.json"))
+	if os.IsNotExist(err) {
+		destination, err := os.Create(path.Join(base, "contexts.json"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer destination.Close()
+	}
 }
 
 type Repository struct {
@@ -35,6 +45,35 @@ func NewRepository(filename string) Repository {
 		filename = "tasks.json"
 	}
 	return Repository{filename: filename}
+}
+
+func (t Repository) LoadContexts() []scheduled.Context {
+	file, err := os.Open(path.Join(base, "contexts.json"))
+	if err != nil {
+		log.Printf("Failed to open %s: %v", "contexts.json", err)
+		return []scheduled.Context{scheduled.ContextNone}
+	}
+	defer file.Close()
+
+	var contexts struct {
+		Contexts []scheduled.Context `json:"contexts"`
+	}
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&contexts); err != nil {
+		log.Printf("Failed to decode %s: %v", "contexts.json", err)
+		return []scheduled.Context{scheduled.ContextNone}
+	}
+
+	// add none hard coded none context
+	allContexts := []scheduled.Context{scheduled.ContextNone}
+	for _, c := range contexts.Contexts {
+		if c.ID != 1 {
+			allContexts = append(allContexts, c)
+		}
+	}
+
+	return allContexts
 }
 
 func (t Repository) Load() []scheduled.Task {

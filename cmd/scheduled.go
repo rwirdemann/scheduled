@@ -34,9 +34,8 @@ const (
 	modeContexts
 )
 
-type taskRepository interface {
-	Load() []scheduled.Task
-	Save(tasks []scheduled.Task)
+type repository interface {
+	LoadContexts() []scheduled.Context
 }
 
 type model struct {
@@ -46,7 +45,7 @@ type model struct {
 	board *board.Model
 
 	form           *huh.Form
-	taskRepository taskRepository
+	taskRepository repository
 
 	showHelp bool
 	keys     scheduled.KeyMap
@@ -55,6 +54,7 @@ type model struct {
 	termWidth  int
 	termHeight int
 
+	contexts    []scheduled.Context
 	contextList list.Model
 
 	mode mode
@@ -66,15 +66,20 @@ func newModel(root panel.Model, tasksFile string) model {
 	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	h.Styles.FullSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
+	repo := file.NewRepository(tasksFile)
 	contextListDelegate := list.NewDefaultDelegate()
 	contextListDelegate.ShowDescription = false
 	contextListDelegate.SetSpacing(0)
-	contextList := list.New([]list.Item{scheduled.ContextNone, scheduled.ContextPrivate, scheduled.ContextiNeonpulse}, contextListDelegate, 0, 0)
+	contexts := repo.LoadContexts()
+	items := make([]list.Item, len(contexts))
+	for i, v := range contexts {
+		items[i] = v
+	}
+	contextList := list.New(items, contextListDelegate, 0, 0)
 	contextList.SetShowHelp(false)
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
-	repo := file.NewRepository(tasksFile)
 	m := model{
 		root:           root,
 		taskRepository: repo,
@@ -82,6 +87,7 @@ func newModel(root panel.Model, tasksFile string) model {
 		help:           h,
 		showHelp:       true,
 		mode:           modeNormal,
+		contexts:       contexts,
 		contextList:    contextList,
 		board:          board.NewModel(repo),
 	}
@@ -193,7 +199,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Preselect the currently selected context
 			selectedContext := m.board.GetSelectedContext()
 			prefilledTask := &scheduled.Task{Context: selectedContext.ID}
-			m.form = scheduled.CreateTaskForm(prefilledTask)
+			m.form = scheduled.CreateTaskForm(prefilledTask, m.contexts)
 			m.root = m.root.Hide(panelHelp)
 			m.root = m.root.Show(panelEdit)
 			m.root = m.root.SetFocus(panelEdit)
@@ -215,7 +221,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Enter):
 			focusedPanel, _ := m.root.Focused()
 			if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-				m.form = scheduled.CreateTaskForm(&t)
+				m.form = scheduled.CreateTaskForm(&t, m.contexts)
 				m.root = m.root.Hide(panelHelp)
 				m.root = m.root.Show(panelEdit)
 				m.root = m.root.SetFocus(panelEdit)

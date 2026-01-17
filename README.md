@@ -6,6 +6,13 @@ Scheduled is a TUI based rolling task manager that focus on a single work week.
 
 # Installation
 
+Since contexts are oaded from a JSON file, you need to copy and adapt the sample context file to $HOME/.scheduled as follows:
+
+```bash
+mkdir $HOME/.scheduled
+cp contexts.sample.json $HOME/.scheduled/contexts.json
+```
+
 ## MacOS and Linux
 
 ```
