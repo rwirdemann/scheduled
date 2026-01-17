@@ -3,6 +3,7 @@ package scheduled
 import "fmt"
 
 type Task struct {
+	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Desc    string `json:"description"`
 	Day     int    `json:"day"`

@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/date"
 )
@@ -145,7 +146,7 @@ func (m *Model) UpdateTask(name string, context int) {
 }
 
 func (m *Model) CreateTask(name string, context int) {
-	t := scheduled.Task{Name: name, Context: context, Day: m.LastFocus}
+	t := scheduled.Task{Name: name, Context: context, Day: m.LastFocus, ID: uuid.NewString()}
 	list := m.lists[m.LastFocus]
 	list.InsertItem(len(list.Items()), t)
 

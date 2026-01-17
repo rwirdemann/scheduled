@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/google/uuid"
 	"github.com/rwirdemann/scheduled"
 )
 
@@ -52,6 +53,12 @@ func (t Repository) Load() []scheduled.Task {
 	if err := decoder.Decode(&tasks); err != nil {
 		log.Printf("Failed to decode %s: %v", t.filename, err)
 		return []scheduled.Task{}
+	}
+
+	for i := range tasks.Tasks {
+		if tasks.Tasks[i].ID == "" {
+			tasks.Tasks[i].ID = uuid.NewString()
+		}
 	}
 
 	return tasks.Tasks
