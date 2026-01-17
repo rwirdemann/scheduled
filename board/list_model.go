@@ -119,11 +119,26 @@ func (lm *ListModel) ToggleDone() bool {
 	if selected == nil {
 		return false
 	}
-	t := selected.(scheduled.Task)
+	oldTask := selected.(scheduled.Task)
+	t := oldTask
 	t.Done = !t.Done
 	idx := lm.Index()
 	lm.RemoveItem(idx)
 	lm.InsertItem(idx, t)
 	lm.Select(idx)
+
+	// Synchronize allItems when a context filter is active
+	if lm.allItems != nil {
+		for i, item := range lm.allItems {
+			task := item.(scheduled.Task)
+			if task.Name == oldTask.Name && task.Day == oldTask.Day &&
+				task.Context == oldTask.Context && task.Done == oldTask.Done &&
+				task.Desc == oldTask.Desc && task.Pos == oldTask.Pos {
+				lm.allItems[i] = t
+				break
+			}
+		}
+	}
+
 	return true
 }

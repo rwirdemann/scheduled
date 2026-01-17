@@ -122,18 +122,37 @@ func (m *Model) loadTasks() {
 
 func (m *Model) UpdateTask(name string, context int) {
 	list := m.lists[m.LastFocus]
-	task := list.SelectedItem().(scheduled.Task)
+	oldTask := list.SelectedItem().(scheduled.Task)
+	task := oldTask
 	task.Name = name
 	task.Context = context
 	index := list.Index()
 	list.RemoveItem(index)
 	list.InsertItem(index, task)
+
+	// Synchronize allItems when a context filter is active
+	if list.allItems != nil {
+		for i, item := range list.allItems {
+			t := item.(scheduled.Task)
+			if t.Name == oldTask.Name && t.Day == oldTask.Day &&
+				t.Context == oldTask.Context && t.Done == oldTask.Done &&
+				t.Desc == oldTask.Desc && t.Pos == oldTask.Pos {
+				list.allItems[i] = task
+				break
+			}
+		}
+	}
 }
 
 func (m *Model) CreateTask(name string, context int) {
 	t := scheduled.Task{Name: name, Context: context, Day: m.LastFocus}
 	list := m.lists[m.LastFocus]
 	list.InsertItem(len(list.Items()), t)
+
+	// Synchronize allItems when a context filter is active
+	if list.allItems != nil {
+		list.allItems = append(list.allItems, t)
+	}
 }
 
 func (m *Model) SetListTitle(listIndex int, title string) {
@@ -167,6 +186,19 @@ func (m *Model) DeleteTask(listIndex int) {
 		task := i.(scheduled.Task)
 		if task.Done {
 			l.RemoveItem(l.Index())
+
+			// Synchronize allItems when a context filter is active
+			if l.allItems != nil {
+				for idx, item := range l.allItems {
+					t := item.(scheduled.Task)
+					if t.Name == task.Name && t.Day == task.Day &&
+						t.Context == task.Context && t.Done == task.Done &&
+						t.Desc == task.Desc && t.Pos == task.Pos {
+						l.allItems = append(l.allItems[:idx], l.allItems[idx+1:]...)
+						break
+					}
+				}
+			}
 		}
 	}
 }
@@ -184,10 +216,28 @@ func (m *Model) MoveTask(from, to int) {
 	}
 
 	if item := m.lists[from].SelectedItem(); item != nil {
-		t := item.(scheduled.Task)
+		oldTask := item.(scheduled.Task)
+		t := oldTask
 		t.Day = to
 		m.lists[from].RemoveItem(m.lists[from].Index())
 		m.lists[to].InsertItem(len(m.lists[to].Items()), t)
+
+		// Synchronize allItems when a context filter is active
+		if m.lists[from].allItems != nil {
+			for idx, item := range m.lists[from].allItems {
+				task := item.(scheduled.Task)
+				if task.Name == oldTask.Name && task.Day == oldTask.Day &&
+					task.Context == oldTask.Context && task.Done == oldTask.Done &&
+					task.Desc == oldTask.Desc && task.Pos == oldTask.Pos {
+					m.lists[from].allItems = append(m.lists[from].allItems[:idx], m.lists[from].allItems[idx+1:]...)
+					break
+				}
+			}
+		}
+
+		if m.lists[to].allItems != nil {
+			m.lists[to].allItems = append(m.lists[to].allItems, t)
+		}
 	}
 }
 
