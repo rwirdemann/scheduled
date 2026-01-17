@@ -77,6 +77,10 @@ func (m *Model) Week() int {
 	return m.week
 }
 
+func (m *Model) GetSelectedContext() scheduled.Context {
+	return m.selectedContext
+}
+
 func (m *Model) SetContext(context scheduled.Context) {
 	m.selectedContext = context
 	for _, list := range m.lists {

@@ -190,7 +190,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			focusedPanel, _ := m.root.Focused()
 			m.board.MoveDown(focusedPanel.ID)
 		case key.Matches(msg, m.keys.New):
-			m.form = scheduled.CreateTaskForm(nil)
+			// Preselect the currently selected context
+			selectedContext := m.board.GetSelectedContext()
+			prefilledTask := &scheduled.Task{Context: selectedContext.ID}
+			m.form = scheduled.CreateTaskForm(prefilledTask)
 			m.root = m.root.Hide(panelHelp)
 			m.root = m.root.Show(panelEdit)
 			m.root = m.root.SetFocus(panelEdit)
