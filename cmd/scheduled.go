@@ -49,9 +49,10 @@ type model struct {
 	form           *huh.Form
 	taskRepository repository
 
-	showHelp bool
-	keys     scheduled.KeyMap
-	help     help.Model
+	showHelp        bool
+	keys            scheduled.KeyMap
+	contextViewKeys scheduled.ContextViewKeyMap
+	help            help.Model
 
 	termWidth  int
 	termHeight int
@@ -83,15 +84,16 @@ func newModel(root panel.Model, tasksFile string) model {
 	contextList.Title = "Contexts"
 
 	m := model{
-		root:           root,
-		taskRepository: repo,
-		keys:           scheduled.Keys,
-		help:           h,
-		showHelp:       true,
-		mode:           modeNormal,
-		contexts:       contexts,
-		contextList:    contextList,
-		board:          board.NewModel(repo),
+		root:            root,
+		taskRepository:  repo,
+		keys:            scheduled.Keys,
+		contextViewKeys: scheduled.ContextViewKeys,
+		help:            h,
+		showHelp:        true,
+		mode:            modeNormal,
+		contexts:        contexts,
+		contextList:     contextList,
+		board:           board.NewModel(repo),
 	}
 	return m
 }
@@ -153,7 +155,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d)", m.board.Week()))
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
-			case key.Matches(msg, m.keys.NewContext):
+			case key.Matches(msg, m.contextViewKeys.NewContext):
 				m.root = m.root.Show(contextEditPanel)
 				m.root = m.root.SetFocus(contextEditPanel)
 				return m, nil
@@ -298,7 +300,8 @@ func renderHelp(m tea.Model, panelID int, w, h int) string {
 func renderContextPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
 	model.contextList.SetSize(w, h)
-	return model.contextList.View()
+	help := model.help.FullHelpView(model.contextViewKeys.FullHelp())
+	return model.contextList.View() + "\n" + help
 }
 
 func renderContextEditPanel(m tea.Model, panelID int, w, h int) string {

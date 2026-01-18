@@ -20,24 +20,19 @@ type KeyMap struct {
 	MoveToToday key.Binding
 	MoveToInbox key.Binding
 	Contexts    key.Binding
-	NewContext  key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
 // of the key.Map interface.
-func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.ShiftRight, k.ShiftLeft, k.Help, k.Quit}
+func (k ContextViewKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.NewContext, k.CloseView}
 }
 
 // FullHelp returns keybindings for the expanded help view. It's part of the
 // key.Map interface.
-func (k KeyMap) FullHelp() [][]key.Binding {
+func (k ContextViewKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.New, k.Enter, k.Space, k.Back},
-		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
-		{k.Num, k.MoveToToday, k.MoveToInbox, k.Esc},
-		{k.Right, k.Left},
-		{k.Help, k.Contexts, k.Quit},
+		{k.NewContext, k.CloseView},
 	}
 }
 
@@ -110,8 +105,38 @@ var Keys = KeyMap{
 		key.WithKeys("c"),
 		key.WithHelp("c", "show contexts"),
 	),
+}
+
+type ContextViewKeyMap struct {
+	NewContext key.Binding
+	CloseView  key.Binding
+}
+
+// ShortHelp returns keybindings to be shown in the mini help view. It's part
+// of the key.Map interface.
+func (k KeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.ShiftRight, k.ShiftLeft, k.Help, k.Quit}
+}
+
+// FullHelp returns keybindings for the expanded help view. It's part of the
+// key.Map interface.
+func (k KeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.New, k.Enter, k.Space, k.Back},
+		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
+		{k.Num, k.MoveToToday, k.MoveToInbox, k.Esc},
+		{k.Right, k.Left},
+		{k.Help, k.Contexts, k.Quit},
+	}
+}
+
+var ContextViewKeys = ContextViewKeyMap{
 	NewContext: key.NewBinding(
 		key.WithKeys("n"),
 		key.WithHelp("n", "new context"),
+	),
+	CloseView: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "close view"),
 	),
 }
