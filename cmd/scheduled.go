@@ -20,9 +20,11 @@ import (
 )
 
 const (
-	panelEdit = 40
-	panelHelp = 50
-	panelLeft = 60
+	panelEdit        = 40
+	panelHelp        = 50
+	contextPanel     = 60
+	leftPanel        = 70
+	contextEditPanel = 80
 )
 
 type mode int
@@ -138,18 +140,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch {
-			case key.Matches(msg, m.keys.Contexts), key.Matches(msg, m.keys.Esc):
+			case key.Matches(msg, m.keys.Esc):
 				m.mode = modeNormal
-				m.root = m.root.Hide(panelLeft)
+				m.root = m.root.Hide(leftPanel)
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
 			case key.Matches(msg, m.keys.Enter):
 				m.mode = modeNormal
 				i := m.contextList.SelectedItem()
 				m.board.SetContext(i.(scheduled.Context))
-				m.root = m.root.Hide(panelLeft)
+				m.root = m.root.Hide(leftPanel)
 				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d)", m.board.Week()))
 				m.root = m.root.SetFocus(m.board.LastFocus)
+				return m, nil
+			case key.Matches(msg, m.keys.NewContext):
+				m.root = m.root.Show(contextEditPanel)
+				m.root = m.root.SetFocus(contextEditPanel)
 				return m, nil
 			}
 		}
@@ -245,8 +251,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.Contexts):
 			m.mode = modeContexts
-			m.root = m.root.Show(panelLeft)
-			m.root.SetFocus(panelLeft)
+			m.root = m.root.Show(leftPanel)
+			m.root.SetFocus(leftPanel)
 			return m, nil
 		}
 	}
@@ -289,10 +295,14 @@ func renderHelp(m tea.Model, panelID int, w, h int) string {
 	return model.help.FullHelpView(model.keys.FullHelp())
 }
 
-func renderLeftPanel(m tea.Model, panelID int, w, h int) string {
+func renderContextPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
 	model.contextList.SetSize(w, h)
 	return model.contextList.View()
+}
+
+func renderContextEditPanel(m tea.Model, panelID int, w, h int) string {
+	return "Edit Context"
 }
 
 func main() {
@@ -322,7 +332,12 @@ func main() {
 		Append(editPanel).
 		Append(helpPanel)
 
-	leftPanel := panel.New().WithId(panelLeft).WithRatio(12).WithBorder().WithVisible(false).WithContent(renderLeftPanel)
+	leftPanel := panel.New().WithId(leftPanel).WithRatio(12).WithVisible(false).WithLayout(panel.LayoutDirectionVertical)
+	contextPanel := panel.New().WithId(contextPanel).WithRatio(82).WithBorder().WithContent(renderContextPanel)
+	contextEditPanel := panel.New().WithId(contextEditPanel).WithRatio(18).WithBorder().WithVisible(false).WithContent(renderContextEditPanel).WithMaxHeight(6)
+	leftPanel = leftPanel.
+		Append(contextPanel).
+		Append(contextEditPanel)
 
 	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionHorizontal).
 		Append(leftPanel).

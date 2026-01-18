@@ -20,6 +20,7 @@ type KeyMap struct {
 	MoveToToday key.Binding
 	MoveToInbox key.Binding
 	Contexts    key.Binding
+	NewContext  key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
@@ -108,5 +109,9 @@ var Keys = KeyMap{
 	Contexts: key.NewBinding(
 		key.WithKeys("c"),
 		key.WithHelp("c", "show contexts"),
+	),
+	NewContext: key.NewBinding(
+		key.WithKeys("n"),
+		key.WithHelp("n", "new context"),
 	),
 }
