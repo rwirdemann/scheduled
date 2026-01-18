@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -57,10 +58,11 @@ type model struct {
 	termWidth  int
 	termHeight int
 
-	contexts    []scheduled.Context
-	contextList list.Model
-
-	mode mode
+	contexts         []scheduled.Context
+	contextList      list.Model
+	editContextShown bool
+	contextEdit      textinput.Model
+	mode             mode
 }
 
 func newModel(root panel.Model, tasksFile string) model {
@@ -93,8 +95,11 @@ func newModel(root panel.Model, tasksFile string) model {
 		mode:            modeNormal,
 		contexts:        contexts,
 		contextList:     contextList,
+		contextEdit:     textinput.New(),
 		board:           board.NewModel(repo),
 	}
+	m.contextEdit.Placeholder = "Context"
+	m.contextEdit.Width = 20
 	return m
 }
 
@@ -142,7 +147,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch {
-			case key.Matches(msg, m.keys.Esc):
+			case key.Matches(msg, m.contextViewKeys.CloseView):
+				if m.editContextShown {
+					m.root = m.root.Hide(contextEditPanel)
+					m.editContextShown = false
+					return m, nil
+				}
 				m.mode = modeNormal
 				m.root = m.root.Hide(leftPanel)
 				m.root = m.root.SetFocus(m.board.LastFocus)
@@ -158,7 +168,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.contextViewKeys.NewContext):
 				m.root = m.root.Show(contextEditPanel)
 				m.root = m.root.SetFocus(contextEditPanel)
-				return m, nil
+				m.editContextShown = true
+				cmd = m.contextEdit.Focus()
+				return m, cmd
 			}
 		}
 		m.contextList, cmd = m.contextList.Update(msg)
@@ -305,7 +317,8 @@ func renderContextPanel(m tea.Model, panelID int, w, h int) string {
 }
 
 func renderContextEditPanel(m tea.Model, panelID int, w, h int) string {
-	return "Edit Context"
+	model := m.(model)
+	return model.contextEdit.View()
 }
 
 func main() {
