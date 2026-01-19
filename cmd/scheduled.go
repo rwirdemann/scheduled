@@ -144,15 +144,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, cmd
 	case modeContexts:
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch {
-			case key.Matches(msg, m.contextViewKeys.CloseView):
-				if m.editContextShown {
+		if m.editContextShown {
+			switch msg := msg.(type) {
+			case tea.KeyMsg:
+				switch {
+				case key.Matches(msg, m.contextViewKeys.CloseView):
 					m.root = m.root.Hide(contextEditPanel)
 					m.editContextShown = false
 					return m, nil
 				}
+			}
+		}
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch {
+			case key.Matches(msg, m.contextViewKeys.CloseView):
 				m.mode = modeNormal
 				m.root = m.root.Hide(leftPanel)
 				m.root = m.root.SetFocus(m.board.LastFocus)
