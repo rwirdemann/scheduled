@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -17,6 +18,7 @@ import (
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/board"
+	clipboard2 "github.com/rwirdemann/scheduled/clipboard"
 	"github.com/rwirdemann/scheduled/file"
 )
 
@@ -273,6 +275,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mode = modeContexts
 			m.root = m.root.Show(leftPanel)
 			m.root.SetFocus(leftPanel)
+			return m, nil
+		case key.Matches(msg, m.keys.CopyTasks):
+			focusedPanel, _ := m.root.Focused()
+			if focusedPanel.ID != panelEdit {
+				tasks := m.board.GetTasksForPanel(focusedPanel.ID)
+				clipboardText := clipboard2.FormatTasks(m.contexts, tasks)
+				_ = clipboard.WriteAll(clipboardText)
+			}
 			return m, nil
 		}
 	}

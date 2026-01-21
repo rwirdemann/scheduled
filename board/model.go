@@ -249,6 +249,19 @@ func (m *Model) GetSelectedTask(listIndex int) (scheduled.Task, bool) {
 	return scheduled.Task{}, false
 }
 
+// GetTasksForPanel returns a slice of tasks for the specified panel index.
+func (m *Model) GetTasksForPanel(listIndex int) []scheduled.Task {
+	if l, exists := m.lists[listIndex]; exists {
+		items := l.Items()
+		tasks := make([]scheduled.Task, 0, len(items))
+		for _, item := range items {
+			tasks = append(tasks, item.(scheduled.Task))
+		}
+		return tasks
+	}
+	return []scheduled.Task{}
+}
+
 func (m *Model) Update(listIndex int, msg tea.Msg) tea.Cmd {
 	if l, exists := m.lists[listIndex]; exists {
 		updated, cmd := l.Update(msg)
