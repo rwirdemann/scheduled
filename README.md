@@ -21,10 +21,17 @@ make install
 
 Installs `scheduled` to $GOPATH/bin.
 
+## Binary Downloads
+
+- [MacOS Apple Silicon](bin/scheduled-macos-amd64)
+- [MacOS Intel](bin/scheduled-macos-arm64)
+- [Linux x86](bin/scheduled-linux-amd64)
+- [Windows x86](bin/scheduled-windows-amd64.exe)
+
 ## Usage
 
 ```
-scheduled
+./scheduled-{your-os}
 ```
 
 Enter ? to toggle help.

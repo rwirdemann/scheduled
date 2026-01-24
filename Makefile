@@ -17,10 +17,10 @@ install: build-all
 ifeq ($(shell uname),Darwin)
 ifeq ($(shell uname -m),arm64)
 	@echo "Installing macOS ARM64 binary to ${GOPATH}/bin/scheduled"
-	@cp bin/scheduled-darwin-arm64 ${GOPATH}/bin/scheduled
+	@cp bin/scheduled-macos-arm64 ${GOPATH}/bin/scheduled
 else
 	@echo "Installing macOS AMD64 binary to ${GOPATH}/bin/scheduled"
-	@cp bin/scheduled-darwin-amd64 ${GOPATH}/bin/scheduled
+	@cp bin/scheduled-macos-amd64 ${GOPATH}/bin/scheduled
 endif
 else ifeq ($(shell uname),Linux)
 	@echo "Installing Linux binary to ${GOPATH}/bin/scheduled"
