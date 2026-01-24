@@ -1,8 +1,8 @@
 build-darwin:
-	GOOS=darwin GOARCH=amd64 go build -o bin/scheduled-darwin-amd64 cmd/scheduled.go
+	GOOS=darwin GOARCH=amd64 go build -o bin/scheduled-macos-amd64 cmd/scheduled.go
 
 build-darwin-arm64:
-	GOOS=darwin GOARCH=arm64 go build -o bin/scheduled-darwin-arm64 cmd/scheduled.go
+	GOOS=darwin GOARCH=arm64 go build -o bin/scheduled-macos-arm64 cmd/scheduled.go
 
 build-linux:
 	GOOS=linux GOARCH=amd64 go build -o bin/scheduled-linux-amd64 cmd/scheduled.go
