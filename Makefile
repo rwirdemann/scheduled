@@ -7,6 +7,9 @@ build-darwin-arm64:
 build-linux:
 	GOOS=linux GOARCH=amd64 go build -o bin/scheduled-linux-amd64 cmd/scheduled.go
 
+build-linux-arm64:
+	GOOS=linux GOARCH=arm64 go build -o bin/scheduled-linux-arm64 cmd/scheduled.go
+
 build-windows:
 	GOOS=windows GOARCH=amd64 go build -o bin/scheduled-windows-amd64.exe cmd/scheduled.go
 
