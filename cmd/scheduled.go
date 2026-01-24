@@ -80,7 +80,6 @@ type model struct {
 	termWidth  int
 	termHeight int
 
-	contexts         []scheduled.Context
 	contextList      list.Model
 	editContextShown bool
 	contextEdit      textinput.Model
@@ -118,7 +117,6 @@ func newModel(root panel.Model, tasksFile string) model {
 		help:            h,
 		showHelp:        true,
 		mode:            modeNormal,
-		contexts:        contexts,
 		contextList:     contextList,
 		contextEdit:     textinput.New(),
 		board:           board.NewModel(repo),
@@ -134,7 +132,7 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Save() {
 	m.board.SaveTasks()
-	m.repository.SaveContexts(m.contexts)
+	m.repository.SaveContexts(m.contexts())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -222,7 +220,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.root = m.root.Hide(leftPanel)
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
-			case key.Matches(msg, m.keys.Enter):
+			case key.Matches(msg, m.contextViewKeys.SelectContext):
 				m.mode = modeNormal
 				i := m.contextList.SelectedItem()
 				m.board.SetContext(i.(scheduled.Context))
@@ -236,6 +234,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.editContextShown = true
 				cmd = m.contextEdit.Focus()
 				return m, cmd
+			case key.Matches(msg, m.contextViewKeys.DeleteContext):
+				var err error
+				if m, err = m.deleteContext(); err != nil {
+					return m.showStatusMessage(err.Error())
+				}
 			}
 		}
 		m.contextList, cmd = m.contextList.Update(msg)
@@ -281,7 +284,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Preselect the currently selected context
 			selectedContext := m.board.GetSelectedContext()
 			prefilledTask := &scheduled.Task{Context: selectedContext.ID}
-			m.form = scheduled.CreateTaskForm(prefilledTask, m.contexts)
+			m.form = scheduled.CreateTaskForm(prefilledTask, m.contexts())
 			m.root = m.root.Hide(panelHelp)
 			m.root = m.root.Show(panelEdit)
 			m.root = m.root.SetFocus(panelEdit)
@@ -303,7 +306,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Enter):
 			focusedPanel, _ := m.root.Focused()
 			if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-				m.form = scheduled.CreateTaskForm(&t, m.contexts)
+				m.form = scheduled.CreateTaskForm(&t, m.contexts())
 				m.root = m.root.Hide(panelHelp)
 				m.root = m.root.Show(panelEdit)
 				m.root = m.root.SetFocus(panelEdit)
@@ -334,7 +337,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			focusedPanel, _ := m.root.Focused()
 			if focusedPanel.ID != panelEdit {
 				tasks := m.board.GetTasksForPanel(focusedPanel.ID)
-				clipboardText := clpboard.FormatTasks(m.contexts, tasks)
+				clipboardText := clpboard.FormatTasks(m.contexts(), tasks)
 				_ = clipboard.WriteAll(clipboardText)
 				return m.showStatusMessage("Tasks copied to clipboard")
 			}
@@ -354,6 +357,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m model) deleteContext() (model, error) {
+	items := m.contextList.Items()
+	if len(items) == 0 {
+		return m, nil
+	}
+
+	selected := m.contextList.SelectedItem()
+	c := selected.(scheduled.Context)
+	if m.board.IsContextUsed(c) {
+		return m, fmt.Errorf("Context '%s' is beeing used", c.Name)
+	}
+
+	i := m.contextList.Index()
+	items = append(items[:i], items[i+1:]...)
+	m.contextList.SetItems(items)
+	return m, nil
+}
+
 func (m model) showStatusMessage(s string) (model, tea.Cmd) {
 	m.statusMessage = s
 	m.statusTimeout = time.Now().Add(2 * time.Second)
@@ -366,7 +387,7 @@ func (m model) addContext(name string) (model, error) {
 		return m, errors.New("Context must not be empty")
 	}
 	maxID := 1
-	for _, c := range m.contexts {
+	for _, c := range m.contexts() {
 		if strings.EqualFold(c.Name, name) {
 			return m, fmt.Errorf("Context '%s' does already exist", name)
 		}
@@ -376,7 +397,6 @@ func (m model) addContext(name string) (model, error) {
 	}
 
 	c := scheduled.Context{ID: maxID + 1, Name: name}
-	m.contexts = append(m.contexts, c)
 	m.contextList.InsertItem(len(m.contextList.Items()), c)
 	return m, nil
 }
@@ -409,7 +429,7 @@ func renderHelp(m tea.Model, panelID int, w, h int) string {
 
 func renderContextPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
-	model.contextList.SetSize(w, h)
+	model.contextList.SetSize(w, h-2)
 	help := model.help.FullHelpView(model.contextViewKeys.FullHelp())
 	return model.contextList.View() + "\n" + help
 }
@@ -426,6 +446,15 @@ func renderStatus(m tea.Model, panelID int, w, h int) string {
 		Bold(true).
 		Padding(0, 1)
 	return statusStyle.Render(model.statusMessage)
+}
+
+func (m model) contexts() []scheduled.Context {
+	items := m.contextList.Items()
+	var contexts []scheduled.Context
+	for _, i := range items {
+		contexts = append(contexts, i.(scheduled.Context))
+	}
+	return contexts
 }
 
 func main() {
@@ -450,14 +479,14 @@ func main() {
 	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(6)
 	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true).WithMaxHeight(6)
 
-	rightPanel := panel.New().WithRatio(88).WithLayout(panel.LayoutDirectionVertical).
+	rightPanel := panel.New().WithRatio(84).WithLayout(panel.LayoutDirectionVertical).
 		Append(statusPanel).
 		Append(row1).
 		Append(row2).
 		Append(editPanel).
 		Append(helpPanel)
 
-	leftPanel := panel.New().WithId(leftPanel).WithRatio(12).WithVisible(false).WithLayout(panel.LayoutDirectionVertical)
+	leftPanel := panel.New().WithId(leftPanel).WithRatio(16).WithVisible(false).WithLayout(panel.LayoutDirectionVertical)
 	contextPanel := panel.New().WithId(contextPanel).WithRatio(82).WithBorder().WithContent(renderContextPanel)
 	contextEditPanel := panel.New().WithId(contextEditPanel).WithRatio(18).WithBorder().WithVisible(false).WithContent(renderContextEditPanel).WithMaxHeight(6)
 	leftPanel = leftPanel.

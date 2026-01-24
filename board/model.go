@@ -285,6 +285,10 @@ func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
 }
 
 func (m *Model) SaveTasks() {
+	m.repository.Save(m.flattenTasks())
+}
+
+func (m *Model) flattenTasks() []scheduled.Task {
 	var tasks []scheduled.Task
 	for _, ll := range m.lists {
 		var itemsToSave []list.Item
@@ -300,7 +304,7 @@ func (m *Model) SaveTasks() {
 			tasks = append(tasks, t)
 		}
 	}
-	m.repository.Save(tasks)
+	return tasks
 }
 
 func (m *Model) Render(panelID int, w, h int) string {
@@ -309,6 +313,15 @@ func (m *Model) Render(panelID int, w, h int) string {
 		return list.Model.View()
 	}
 	return ""
+}
+
+func (m *Model) IsContextUsed(c scheduled.Context) bool {
+	for _, t := range m.flattenTasks() {
+		if t.Context == c.ID {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) setWeek(week int) {

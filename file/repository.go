@@ -79,7 +79,6 @@ func (t Repository) LoadContexts() []scheduled.Context {
 func (t Repository) Load() []scheduled.Task {
 	file, err := os.Open(path.Join(base, t.filename))
 	if err != nil {
-		log.Printf("Failed to open %s: %v", t.filename, err)
 		return []scheduled.Task{}
 	}
 	defer file.Close()
@@ -131,8 +130,11 @@ func (t Repository) SaveContexts(contexts []scheduled.Context) {
 
 	data := struct {
 		Contexts []scheduled.Context `json:"contexts"`
-	}{
-		Contexts: contexts,
+	}{}
+	for _, c := range contexts {
+		if c.ID != 1 {
+			data.Contexts = append(data.Contexts, c)
+		}
 	}
 
 	encoder := json.NewEncoder(file)

@@ -26,14 +26,14 @@ type KeyMap struct {
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
 // of the key.Map interface.
 func (k ContextViewKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.NewContext, k.CloseView}
+	return []key.Binding{k.SelectContext, k.NewContext, k.DeleteContext, k.CloseView}
 }
 
 // FullHelp returns keybindings for the expanded help view. It's part of the
 // key.Map interface.
 func (k ContextViewKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.NewContext, k.CloseView},
+		{k.NewContext, k.SelectContext, k.DeleteContext, k.CloseView},
 	}
 }
 
@@ -113,8 +113,10 @@ var Keys = KeyMap{
 }
 
 type ContextViewKeyMap struct {
-	NewContext key.Binding
-	CloseView  key.Binding
+	NewContext    key.Binding
+	SelectContext key.Binding
+	DeleteContext key.Binding
+	CloseView     key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
@@ -136,9 +138,17 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 }
 
 var ContextViewKeys = ContextViewKeyMap{
+	SelectContext: key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("enter", "select context"),
+	),
 	NewContext: key.NewBinding(
 		key.WithKeys("n"),
 		key.WithHelp("n", "new context"),
+	),
+	DeleteContext: key.NewBinding(
+		key.WithKeys("backspace"),
+		key.WithHelp("backspace", "del context"),
 	),
 	CloseView: key.NewBinding(
 		key.WithKeys("esc"),
