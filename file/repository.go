@@ -102,6 +102,7 @@ func (t Repository) Load() []scheduled.Task {
 
 	return tasks.Tasks
 }
+
 func (t Repository) Save(tasks []scheduled.Task) {
 	file, err := os.Create(path.Join(base, t.filename))
 	if err != nil {
@@ -118,5 +119,24 @@ func (t Repository) Save(tasks []scheduled.Task) {
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
 		log.Fatalf("Failed to encode tasks to %s: %v", t.filename, err)
+	}
+}
+
+func (t Repository) SaveContexts(contexts []scheduled.Context) {
+	file, err := os.Create(path.Join(base, "contexts.json"))
+	if err != nil {
+		log.Fatalf("Failed to create %s: %v", file.Name(), err)
+	}
+	defer file.Close()
+
+	data := struct {
+		Contexts []scheduled.Context `json:"contexts"`
+	}{
+		Contexts: contexts,
+	}
+
+	encoder := json.NewEncoder(file)
+	if err := encoder.Encode(data); err != nil {
+		log.Fatalf("Failed to encode contexts to %s: %v", file.Name(), err)
 	}
 }

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/atotto/clipboard"
@@ -28,6 +30,7 @@ const (
 	contextPanel     = 60
 	leftPanel        = 70
 	contextEditPanel = 80
+	statusPanel      = 90
 )
 
 type mode int
@@ -39,8 +42,17 @@ const (
 	modeContexts
 )
 
+type clearStatusMsg struct{}
+
+func clearStatusAfter(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		return clearStatusMsg{}
+	})
+}
+
 type repository interface {
 	LoadContexts() []scheduled.Context
+	SaveContexts(contexts []scheduled.Context)
 }
 
 type model struct {
@@ -49,8 +61,8 @@ type model struct {
 
 	board *board.Model
 
-	form           *huh.Form
-	taskRepository repository
+	form       *huh.Form
+	repository repository
 
 	showHelp        bool
 	keys            scheduled.KeyMap
@@ -65,6 +77,9 @@ type model struct {
 	editContextShown bool
 	contextEdit      textinput.Model
 	mode             mode
+
+	statusMessage string
+	statusTimeout time.Time
 }
 
 func newModel(root panel.Model, tasksFile string) model {
@@ -89,7 +104,7 @@ func newModel(root panel.Model, tasksFile string) model {
 
 	m := model{
 		root:            root,
-		taskRepository:  repo,
+		repository:      repo,
 		keys:            scheduled.Keys,
 		contextViewKeys: scheduled.ContextViewKeys,
 		help:            h,
@@ -112,6 +127,22 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keys.Quit):
+			m.board.SaveTasks()
+			m.repository.SaveContexts(m.contexts)
+			return m, tea.Quit
+		}
+	case clearStatusMsg:
+		if time.Now().After(m.statusTimeout) {
+			m.statusMessage = ""
+			m.root = m.root.Hide(statusPanel)
+		}
+		return m, nil
+	}
 
 	switch m.mode {
 	case modeNew, modeEdit:
@@ -154,8 +185,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.root = m.root.Hide(contextEditPanel)
 					m.editContextShown = false
 					return m, nil
+				case key.Matches(msg, m.keys.Enter):
+					var err error
+					if m, err = m.addContext(m.contextEdit.Value()); err != nil {
+						return m.showStatusMessage(err.Error())
+					}
+					m.contextEdit.SetValue("")
+					m.root = m.root.Hide(contextEditPanel)
+					m.editContextShown = false
+					return m, nil
 				}
 			}
+			m.contextEdit, cmd = m.contextEdit.Update(msg)
+			return m, cmd
 		}
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
@@ -200,9 +242,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.root = m.root.Hide(panelHelp)
 			}
 			return m, nil
-		case key.Matches(msg, m.keys.Quit):
-			m.board.SaveTasks()
-			return m, tea.Quit
 		case key.Matches(msg, m.keys.Right):
 			m.board.IncWeek()
 			return m, nil
@@ -282,6 +321,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				tasks := m.board.GetTasksForPanel(focusedPanel.ID)
 				clipboardText := clipboard2.FormatTasks(m.contexts, tasks)
 				_ = clipboard.WriteAll(clipboardText)
+				return m.showStatusMessage("Tasks copied to clipboard")
 			}
 			return m, nil
 		}
@@ -297,6 +337,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+func (m model) showStatusMessage(s string) (model, tea.Cmd) {
+	m.statusMessage = s
+	m.statusTimeout = time.Now().Add(2 * time.Second)
+	m.root = m.root.Show(statusPanel)
+	return m, clearStatusAfter(2 * time.Second)
+}
+
+func (m model) addContext(name string) (model, error) {
+	if name == "" {
+		return m, errors.New("Context must not be empty")
+	}
+	maxID := 1
+	for _, c := range m.contexts {
+		if strings.EqualFold(c.Name, name) {
+			return m, fmt.Errorf("Context '%s' does already exist", name)
+		}
+		if c.ID > maxID {
+			maxID = c.ID
+		}
+	}
+
+	c := scheduled.Context{ID: maxID + 1, Name: name}
+	m.contexts = append(m.contexts, c)
+	m.contextList.InsertItem(len(m.contextList.Items()), c)
+	return m, nil
 }
 
 func (m model) View() string {
@@ -337,6 +404,15 @@ func renderContextEditPanel(m tea.Model, panelID int, w, h int) string {
 	return model.contextEdit.View()
 }
 
+func renderStatus(m tea.Model, panelID int, w, h int) string {
+	model := m.(model)
+	statusStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("42")).
+		Bold(true).
+		Padding(0, 1)
+	return statusStyle.Render(model.statusMessage)
+}
+
 func main() {
 	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
 	flag.Parse()
@@ -355,10 +431,12 @@ func main() {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
 		row2 = row2.Append(p)
 	}
+	statusPanel := panel.New().WithId(statusPanel).WithRatio(18).WithContent(renderStatus).WithBorder().WithVisible(false).WithMaxHeight(3)
 	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(6)
 	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true).WithMaxHeight(6)
 
 	rightPanel := panel.New().WithRatio(88).WithLayout(panel.LayoutDirectionVertical).
+		Append(statusPanel).
 		Append(row1).
 		Append(row2).
 		Append(editPanel).
