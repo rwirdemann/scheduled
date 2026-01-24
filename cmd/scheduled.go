@@ -20,7 +20,7 @@ import (
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/board"
-	clipboard2 "github.com/rwirdemann/scheduled/clipboard"
+	clpboard "github.com/rwirdemann/scheduled/clipboard"
 	"github.com/rwirdemann/scheduled/file"
 )
 
@@ -47,6 +47,14 @@ type clearStatusMsg struct{}
 func clearStatusAfter(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
 		return clearStatusMsg{}
+	})
+}
+
+type autoSaveMsg struct{}
+
+func autoSaveAfter(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		return autoSaveMsg{}
 	})
 }
 
@@ -121,7 +129,12 @@ func newModel(root panel.Model, tasksFile string) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return autoSaveAfter(15 * time.Second)
+}
+
+func (m model) Save() {
+	m.board.SaveTasks()
+	m.repository.SaveContexts(m.contexts)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -132,8 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
-			m.board.SaveTasks()
-			m.repository.SaveContexts(m.contexts)
+			m.Save()
 			return m, tea.Quit
 		}
 	case clearStatusMsg:
@@ -142,6 +154,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.root = m.root.Hide(statusPanel)
 		}
 		return m, nil
+	case autoSaveMsg:
+		m.Save()
+		return m, autoSaveAfter(15 * time.Second)
 	}
 
 	switch m.mode {
@@ -319,7 +334,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			focusedPanel, _ := m.root.Focused()
 			if focusedPanel.ID != panelEdit {
 				tasks := m.board.GetTasksForPanel(focusedPanel.ID)
-				clipboardText := clipboard2.FormatTasks(m.contexts, tasks)
+				clipboardText := clpboard.FormatTasks(m.contexts, tasks)
 				_ = clipboard.WriteAll(clipboardText)
 				return m.showStatusMessage("Tasks copied to clipboard")
 			}
