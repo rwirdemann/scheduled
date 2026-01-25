@@ -50,7 +50,6 @@ func NewRepository(filename string) Repository {
 func (t Repository) LoadContexts() []scheduled.Context {
 	file, err := os.Open(path.Join(base, "contexts.json"))
 	if err != nil {
-		log.Printf("Failed to open %s: %v", "contexts.json", err)
 		return []scheduled.Context{scheduled.ContextNone}
 	}
 	defer file.Close()
@@ -61,14 +60,13 @@ func (t Repository) LoadContexts() []scheduled.Context {
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&contexts); err != nil {
-		log.Printf("Failed to decode %s: %v", "contexts.json", err)
 		return []scheduled.Context{scheduled.ContextNone}
 	}
 
-	// add none hard coded none context
+	// add hard coded none context
 	allContexts := []scheduled.Context{scheduled.ContextNone}
 	for _, c := range contexts.Contexts {
-		if c.ID != 1 {
+		if c.ID != scheduled.ContextNone.ID {
 			allContexts = append(allContexts, c)
 		}
 	}
