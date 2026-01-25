@@ -365,6 +365,9 @@ func (m model) deleteContext() (model, error) {
 
 	selected := m.contextList.SelectedItem()
 	c := selected.(scheduled.Context)
+	if c.ID == scheduled.ContextNone.ID {
+		return m, fmt.Errorf("Context '%s' can not be deleted", scheduled.ContextNone.Name)
+	}
 	if m.board.IsContextUsed(c) {
 		return m, fmt.Errorf("Context '%s' is beeing used", c.Name)
 	}
