@@ -12,9 +12,7 @@ func FormatTasks(contexts []scheduled.Context, tasks []scheduled.Task) string {
 	// Group tasks by context
 	tasksByContext := make(map[int][]scheduled.Task)
 	for _, task := range tasks {
-		if !task.Done {
-			tasksByContext[task.Context] = append(tasksByContext[task.Context], task)
-		}
+		tasksByContext[task.Context] = append(tasksByContext[task.Context], task)
 	}
 
 	// Get context IDs and sort them

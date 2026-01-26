@@ -339,7 +339,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				tasks := m.board.GetTasksForPanel(focusedPanel.ID)
 				clipboardText := clpboard.FormatTasks(m.contexts(), tasks)
 				_ = clipboard.WriteAll(clipboardText)
-				return m.showStatusMessage("Tasks copied to clipboard")
+				return m.showStatusMessage(fmt.Sprintf("%d tasks copied to clipboard", len(tasks)))
 			}
 			return m, nil
 		}

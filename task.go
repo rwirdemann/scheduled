@@ -16,7 +16,7 @@ func (i Task) Title() string {
 	checkbox := "○ "
 	if i.Done {
 		// Gray color using ANSI escape code
-		return "\x1b[90m✓ " + i.Name + "\x1b[0m"
+		return "\x1b[90m✓ " + fmt.Sprintf("%s (%d)", i.Name, i.Context) + "\x1b[0m"
 	}
 	return fmt.Sprintf("%s%s (%d)", checkbox, i.Name, i.Context)
 }
