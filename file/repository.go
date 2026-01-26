@@ -5,12 +5,13 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/rwirdemann/scheduled"
 )
 
-var base = "tasks.json"
+var base string
 
 func init() {
 	home, err := os.UserHomeDir()
@@ -24,31 +25,23 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// create empty context file if it does not exist
-	_, err = os.Stat(path.Join(base, "contexts.json"))
-	if os.IsNotExist(err) {
-		destination, err := os.Create(path.Join(base, "contexts.json"))
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer destination.Close()
-	}
 }
 
 type Repository struct {
-	filename string
+	filenameTasks    string
+	filenameContexts string
 }
 
-func NewRepository(filename string) Repository {
-	if filename == "" {
-		filename = "tasks.json"
+func NewRepository(filenameTasks string) Repository {
+	if filenameTasks == "" {
+		filenameTasks = "tasks.json"
 	}
-	return Repository{filename: filename}
+	filenameContexts := strings.TrimSuffix(filenameTasks, ".json") + ".contexts.json"
+	return Repository{filenameTasks: filenameTasks, filenameContexts: filenameContexts}
 }
 
 func (t Repository) LoadContexts() []scheduled.Context {
-	file, err := os.Open(path.Join(base, "contexts.json"))
+	file, err := os.Open(path.Join(base, t.filenameContexts))
 	if err != nil {
 		return []scheduled.Context{scheduled.ContextNone}
 	}
@@ -75,7 +68,7 @@ func (t Repository) LoadContexts() []scheduled.Context {
 }
 
 func (t Repository) Load() []scheduled.Task {
-	file, err := os.Open(path.Join(base, t.filename))
+	file, err := os.Open(path.Join(base, t.filenameTasks))
 	if err != nil {
 		return []scheduled.Task{}
 	}
@@ -87,7 +80,7 @@ func (t Repository) Load() []scheduled.Task {
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&tasks); err != nil {
-		log.Printf("Failed to decode %s: %v", t.filename, err)
+		log.Printf("Failed to decode %s: %v", t.filenameTasks, err)
 		return []scheduled.Task{}
 	}
 
@@ -101,9 +94,9 @@ func (t Repository) Load() []scheduled.Task {
 }
 
 func (t Repository) Save(tasks []scheduled.Task) {
-	file, err := os.Create(path.Join(base, t.filename))
+	file, err := os.Create(path.Join(base, t.filenameTasks))
 	if err != nil {
-		log.Fatalf("Failed to create %s: %v", t.filename, err)
+		log.Fatalf("Failed to create %s: %v", t.filenameTasks, err)
 	}
 	defer file.Close()
 
@@ -115,14 +108,14 @@ func (t Repository) Save(tasks []scheduled.Task) {
 
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
-		log.Fatalf("Failed to encode tasks to %s: %v", t.filename, err)
+		log.Fatalf("Failed to encode tasks to %s: %v", t.filenameTasks, err)
 	}
 }
 
 func (t Repository) SaveContexts(contexts []scheduled.Context) {
-	file, err := os.Create(path.Join(base, "contexts.json"))
+	file, err := os.Create(path.Join(base, t.filenameContexts))
 	if err != nil {
-		log.Fatalf("Failed to create %s: %v", file.Name(), err)
+		log.Fatalf("Failed to create %s: %v", t.filenameContexts, err)
 	}
 	defer file.Close()
 
@@ -137,6 +130,6 @@ func (t Repository) SaveContexts(contexts []scheduled.Context) {
 
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
-		log.Fatalf("Failed to encode contexts to %s: %v", file.Name(), err)
+		log.Fatalf("Failed to encode contexts to %s: %v", t.filenameContexts, err)
 	}
 }
