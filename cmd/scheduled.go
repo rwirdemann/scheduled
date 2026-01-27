@@ -24,6 +24,8 @@ import (
 	"github.com/rwirdemann/scheduled/file"
 )
 
+var version = "dev"
+
 const (
 	panelEdit        = 40
 	panelHelp        = 50
@@ -462,7 +464,13 @@ func (m model) contexts() []scheduled.Context {
 
 func main() {
 	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
+	showVersion := flag.Bool("version", false, "show version")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	row1 := panel.New().WithId(20).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
