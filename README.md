@@ -1,10 +1,10 @@
 # Scheduled
 
-Scheduled is a TUI based rolling task manager that focus on a single work week. 
+Scheduled is a TUI-based rolling task manager that focuses on a single work week. Tasks are added to the inbox or to the selected weekday, respectively. Tasks are moved by keyboard from day to day and stay there until they are deleted. Tasks move from week to week, scheduled for the same weekday, till they are deleted. This is especially useful for recurring tasks or tasks that haven't been finished. Contexts enable different working contexts and filter tasks based on their assigned context.
 
-![Scheduled](scheduled.png)
+https://github.com/user-attachments/assets/fa50078e-ee0c-4e11-813f-6d196aa11b7f
 
-## Binary Download
+# Binary Download
 
 Download the binary for your OS from the asset section of the [latest release](https://github.com/rwirdemann/scheduled/releases/tag/0.2.1). Open a terminal and run
 
