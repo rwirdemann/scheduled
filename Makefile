@@ -16,7 +16,7 @@ build-linux-arm64:
 build-windows:
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/scheduled-windows-amd64.exe cmd/scheduled.go
 
-build-all: build-darwin build-darwin-arm64 build-linux build-linux-arm64 build-windows checksums
+build-all: test build-darwin build-darwin-arm64 build-linux build-linux-arm64 build-windows checksums
 	@echo "Built binaries for Darwin, Linux and Windows in bin/"
 
 checksums:
@@ -27,6 +27,9 @@ checksums:
 	@shasum -a 256 bin/scheduled-linux-arm64 | awk '{print $$1}' > bin/scheduled-linux-arm64.sha256
 	@shasum -a 256 bin/scheduled-windows-amd64.exe | awk '{print $$1}' > bin/scheduled-windows-amd64.exe.sha256
 	@echo "Checksums written to bin/*.sha256"
+
+test:
+	go test ./...
 
 install: build-all
 ifeq ($(shell uname),Darwin)
@@ -45,4 +48,4 @@ else
 	@cp bin/scheduled-windows-amd64.exe ${GOPATH}/bin/scheduled.exe
 endif
 
-.PHONY: build-darwin build-darwin-arm64 build-linux build-linux-arm64 build-windows build-all checksums install
+.PHONY: build-darwin build-darwin-arm64 build-linux build-linux-arm64 build-windows build-all checksums test install
