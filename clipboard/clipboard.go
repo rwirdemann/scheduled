@@ -8,6 +8,8 @@ import (
 	"github.com/rwirdemann/scheduled"
 )
 
+// FormatTasks formats a list of tasks into a string suitable for copying to the
+// clipboard.
 func FormatTasks(contexts []scheduled.Context, tasks []scheduled.Task) string {
 	// Group tasks by context
 	tasksByContext := make(map[int][]scheduled.Task)

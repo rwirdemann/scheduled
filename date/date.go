@@ -2,6 +2,7 @@ package date
 
 import "time"
 
+// GetMondayOfWeek returns the Monday of the given week
 func GetMondayOfWeek(week int) time.Time {
 	now := time.Now()
 

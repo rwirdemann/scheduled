@@ -20,18 +20,20 @@ func init() {
 	}
 	base = home + "/.scheduled/"
 
-	// make sure directory exists
+	// make sure the directory exists
 	err = os.MkdirAll(base, 0755)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+// Repository stores tasks and contexts in JSON files.
 type Repository struct {
 	filenameTasks    string
 	filenameContexts string
 }
 
+// NewRepository creates a new Repository instance.
 func NewRepository(filenameTasks string) Repository {
 	if filenameTasks == "" {
 		filenameTasks = "tasks.json"
@@ -40,12 +42,15 @@ func NewRepository(filenameTasks string) Repository {
 	return Repository{filenameTasks: filenameTasks, filenameContexts: filenameContexts}
 }
 
+// LoadContexts loads and returns all contexts from the repository file.
 func (t Repository) LoadContexts() []scheduled.Context {
 	file, err := os.Open(path.Join(base, t.filenameContexts))
 	if err != nil {
 		return []scheduled.Context{scheduled.ContextNone}
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	var contexts struct {
 		Contexts []scheduled.Context `json:"contexts"`
@@ -67,12 +72,15 @@ func (t Repository) LoadContexts() []scheduled.Context {
 	return allContexts
 }
 
-func (t Repository) Load() []scheduled.Task {
+// LoadTasks loads and returns all tasks from the repository file.
+func (t Repository) LoadTasks() []scheduled.Task {
 	file, err := os.Open(path.Join(base, t.filenameTasks))
 	if err != nil {
 		return []scheduled.Task{}
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	var tasks struct {
 		Tasks []scheduled.Task `json:"tasks"`
@@ -93,12 +101,15 @@ func (t Repository) Load() []scheduled.Task {
 	return tasks.Tasks
 }
 
-func (t Repository) Save(tasks []scheduled.Task) {
+// SaveTasks saves the given tasks to the repository file.
+func (t Repository) SaveTasks(tasks []scheduled.Task) {
 	file, err := os.Create(path.Join(base, t.filenameTasks))
 	if err != nil {
 		log.Fatalf("Failed to create %s: %v", t.filenameTasks, err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	data := struct {
 		Tasks []scheduled.Task `json:"tasks"`
@@ -112,12 +123,15 @@ func (t Repository) Save(tasks []scheduled.Task) {
 	}
 }
 
+// SaveContexts saves the given contexts to the repository file.
 func (t Repository) SaveContexts(contexts []scheduled.Context) {
 	file, err := os.Create(path.Join(base, t.filenameContexts))
 	if err != nil {
 		log.Fatalf("Failed to create %s: %v", t.filenameContexts, err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	data := struct {
 		Contexts []scheduled.Context `json:"contexts"`

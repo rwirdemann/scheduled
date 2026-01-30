@@ -13,7 +13,7 @@ func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
 		Key("title").
 		Validate(func(str string) error {
 			if str == "" {
-				return errors.New("Please enter a title")
+				return errors.New("please enter a title")
 			}
 			return nil
 		})

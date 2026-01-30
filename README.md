@@ -10,6 +10,7 @@ Download the binary for your OS from the asset section of the [latest release](h
 
 
 ```
+chmod u+x scheduled-{your-os}
 ./scheduled-{your-os}
 ```
 

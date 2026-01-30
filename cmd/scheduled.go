@@ -62,7 +62,9 @@ func autoSaveAfter(d time.Duration) tea.Cmd {
 
 type repository interface {
 	LoadContexts() []scheduled.Context
+	LoadTasks() []scheduled.Task
 	SaveContexts(contexts []scheduled.Context)
+	SaveTasks(contexts []scheduled.Task)
 }
 
 type model struct {
@@ -91,17 +93,16 @@ type model struct {
 	statusTimeout time.Time
 }
 
-func newModel(root panel.Model, tasksFile string) model {
+func newModel(root panel.Model, repository repository) model {
 	h := help.New()
 	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	h.Styles.FullSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
-	repo := file.NewRepository(tasksFile)
 	contextListDelegate := list.NewDefaultDelegate()
 	contextListDelegate.ShowDescription = false
 	contextListDelegate.SetSpacing(0)
-	contexts := repo.LoadContexts()
+	contexts := repository.LoadContexts()
 	items := make([]list.Item, len(contexts))
 	for i, v := range contexts {
 		items[i] = v
@@ -113,7 +114,7 @@ func newModel(root panel.Model, tasksFile string) model {
 
 	m := model{
 		root:            root,
-		repository:      repo,
+		repository:      repository,
 		keys:            scheduled.Keys,
 		contextViewKeys: scheduled.ContextViewKeys,
 		help:            h,
@@ -121,7 +122,7 @@ func newModel(root panel.Model, tasksFile string) model {
 		mode:            modeNormal,
 		contextList:     contextList,
 		contextEdit:     textinput.New(),
-		board:           board.NewModel(repo),
+		board:           board.NewModel(repository),
 	}
 	m.contextEdit.Placeholder = "Context"
 	m.contextEdit.Width = 20
@@ -462,16 +463,7 @@ func (m model) contexts() []scheduled.Context {
 	return contexts
 }
 
-func main() {
-	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
-	showVersion := flag.Bool("version", false, "show version")
-	flag.Parse()
-
-	if *showVersion {
-		fmt.Println(version)
-		os.Exit(0)
-	}
-
+func createModel(repository repository) model {
 	row1 := panel.New().WithId(20).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
@@ -508,7 +500,22 @@ func main() {
 		Append(leftPanel).
 		Append(rightPanel)
 
-	m := newModel(rootPanel, *tasksFile)
+	return newModel(rootPanel, repository)
+}
+
+func main() {
+	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
+	showVersion := flag.Bool("version", false, "show version")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
+	repo := file.NewRepository(*tasksFile)
+	m := createModel(repo)
+
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("there's been an error: %v", err)

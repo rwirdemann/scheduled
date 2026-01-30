@@ -5,6 +5,7 @@ import (
 	"github.com/rwirdemann/scheduled"
 )
 
+// ListModel represents a custom list model with additional context management.
 type ListModel struct {
 	list.Model
 	savedIndex int
@@ -12,27 +13,32 @@ type ListModel struct {
 	allItems   []list.Item
 }
 
+// NewListModel creates and returns a new instance of ListModel.
 func NewListModel(l list.Model) *ListModel {
 	return &ListModel{Model: l, savedIndex: 0, context: scheduled.ContextNone}
 }
 
+// SaveIndex saves the current index of the list model.
 func (lm *ListModel) SaveIndex() {
 	lm.savedIndex = lm.Index()
 }
 
+// RestoreIndex restores the previously saved index of the list model.
 func (lm *ListModel) RestoreIndex() {
 	lm.Select(lm.savedIndex)
 }
 
+// SetContext updates the list model to display items for the specified context.
+// It switches between contexts, filters items, or restores all items if needed.
 func (lm *ListModel) SetContext(context scheduled.Context) {
 	// Context switch from none to specific
 	if lm.context == scheduled.ContextNone && context != scheduled.ContextNone {
 
-		// Backup all items
+		// Back up all items
 		lm.allItems = make([]list.Item, len(lm.Items()))
 		copy(lm.allItems, lm.Items())
 
-		// Remove items that do not belong to new context, backward to avoid
+		// Remove items that do not belong to the new context, backward to avoid
 		// index problems
 		items := lm.Items()
 		for i := len(items) - 1; i >= 0; i-- {
@@ -42,16 +48,14 @@ func (lm *ListModel) SetContext(context scheduled.Context) {
 			}
 		}
 
-	} else if context == scheduled.ContextNone {
-		if lm.allItems != nil {
-			for len(lm.Items()) > 0 {
-				lm.RemoveItem(0)
-			}
-			for i, item := range lm.allItems {
-				lm.InsertItem(i, item)
-			}
-			lm.allItems = nil
+	} else if context == scheduled.ContextNone && lm.allItems != nil {
+		for len(lm.Items()) > 0 {
+			lm.RemoveItem(0)
 		}
+		for i, item := range lm.allItems {
+			lm.InsertItem(i, item)
+		}
+		lm.allItems = nil
 	} else if lm.context != scheduled.ContextNone && context != scheduled.ContextNone {
 
 		// Reinsert all items
@@ -80,10 +84,12 @@ func (lm *ListModel) SetContext(context scheduled.Context) {
 	lm.context = context
 }
 
+// Deselect clears the selection in the list model.
 func (lm *ListModel) Deselect() {
 	lm.Select(-1)
 }
 
+// MoveItemUp moves the selected item up in the list.
 func (lm *ListModel) MoveItemUp() bool {
 	if lm.Index() <= 0 {
 		return false
@@ -99,6 +105,7 @@ func (lm *ListModel) MoveItemUp() bool {
 	return true
 }
 
+// MoveItemDown moves the selected item down in the list.
 func (lm *ListModel) MoveItemDown() bool {
 	if lm.Index() < 0 || lm.Index() >= len(lm.Items())-1 {
 		return false
@@ -114,6 +121,7 @@ func (lm *ListModel) MoveItemDown() bool {
 	return true
 }
 
+// ToggleDone toggles the done state of the selected task.
 func (lm *ListModel) ToggleDone() bool {
 	selected := lm.SelectedItem()
 	if selected == nil {
