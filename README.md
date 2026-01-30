@@ -20,13 +20,21 @@ Enter ? to toggle help.
 
 Tasks and contexts are stored as JSON in `$HOME/.scheduled`. The default name of the task file is `$HOME/.scheduled/tasks.json` , the name of the context file is `$HOME/.scheduled/tasks.contexts.json`. The task file name can be overriden by CLI flag `-f`. The name of the context file is derived from the tasks file. Thus, every tasks file has a dedicated set of accociated contexts. 
 
+The task and context files are saved when the application exits and every 15 seconds in the background.
+
 ## Development
 
-```
+```bash
 make install
 ```
 
 Installs `scheduled` to $GOPATH/bin.
+
+## Testing
+
+```bash
+go test ./...
+```
 
 ## Libraries
 

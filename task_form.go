@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
+// CreateTaskForm creates a form to create new or edit existings tasks.
 func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
 	titleInput := huh.NewInput().
 		Title("Title").

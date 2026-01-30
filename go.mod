@@ -1,6 +1,6 @@
 module github.com/rwirdemann/scheduled
 
-go 1.25
+go 1.24.4
 
 require (
 	github.com/atotto/clipboard v0.1.4
