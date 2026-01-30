@@ -3,6 +3,8 @@ package scheduled
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
+	NextDay     key.Binding
+	PrevDay     key.Binding
 	ShiftRight  key.Binding
 	ShiftLeft   key.Binding
 	ShiftUp     key.Binding
@@ -38,6 +40,14 @@ func (k ContextViewKeyMap) FullHelp() [][]key.Binding {
 }
 
 var Keys = KeyMap{
+	NextDay: key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab", "next day"),
+	),
+	PrevDay: key.NewBinding(
+		key.WithKeys("shift+tab"),
+		key.WithHelp("shift+tab", "prev day"),
+	),
 	Esc: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "focus inbox"),
@@ -108,7 +118,7 @@ var Keys = KeyMap{
 	),
 	CopyTasks: key.NewBinding(
 		key.WithKeys("k"),
-		key.WithHelp("k", "copy tasks to clipboard"),
+		key.WithHelp("k", "copy tasks"),
 	),
 }
 
@@ -130,9 +140,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.New, k.Enter, k.Space, k.Back},
+		{k.NextDay, k.PrevDay, k.Right, k.Left},
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
 		{k.Num, k.MoveToToday, k.MoveToInbox, k.Esc},
-		{k.Right, k.Left},
 		{k.Help, k.Contexts, k.CopyTasks, k.Quit},
 	}
 }
@@ -140,7 +150,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 var ContextViewKeys = ContextViewKeyMap{
 	SelectContext: key.NewBinding(
 		key.WithKeys("enter"),
-		key.WithHelp("enter", "select context"),
+		key.WithHelp("enter", "select"),
 	),
 	NewContext: key.NewBinding(
 		key.WithKeys("n"),
