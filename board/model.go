@@ -23,7 +23,7 @@ const (
 	Sunday    = 7
 )
 
-var days = map[int]string{
+var Days = map[int]string{
 	Inbox:     "Inbox",
 	Monday:    "Monday",
 	Tuesday:   "Tuesday",
@@ -356,7 +356,7 @@ func (m *Model) setWeek(week int) {
 			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
 		} else {
 			day := monday.AddDate(0, 0, i-1)
-			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, days[i], day.Format("02.01.2006"))
+			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, Days[i], day.Format("02.01.2006"))
 		}
 	}
 }

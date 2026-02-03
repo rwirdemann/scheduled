@@ -3,26 +3,27 @@ package scheduled
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	NextDay     key.Binding
-	PrevDay     key.Binding
-	ShiftRight  key.Binding
-	ShiftLeft   key.Binding
-	ShiftUp     key.Binding
-	ShiftDown   key.Binding
-	Right       key.Binding
-	Left        key.Binding
-	New         key.Binding
-	Esc         key.Binding
-	Back        key.Binding
-	Space       key.Binding
-	Help        key.Binding
-	Enter       key.Binding
-	Quit        key.Binding
-	Num         key.Binding
-	MoveToToday key.Binding
-	MoveToInbox key.Binding
-	Contexts    key.Binding
-	CopyTasks   key.Binding
+	NextDay      key.Binding
+	PrevDay      key.Binding
+	ShiftRight   key.Binding
+	ShiftLeft    key.Binding
+	ShiftUp      key.Binding
+	ShiftDown    key.Binding
+	Right        key.Binding
+	Left         key.Binding
+	New          key.Binding
+	Esc          key.Binding
+	Back         key.Binding
+	Space        key.Binding
+	Help         key.Binding
+	Enter        key.Binding
+	Quit         key.Binding
+	Num          key.Binding
+	MoveToToday  key.Binding
+	MoveToInbox  key.Binding
+	Contexts     key.Binding
+	CopyTasks    key.Binding
+	ScheduleTask key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
@@ -66,7 +67,7 @@ var Keys = KeyMap{
 	),
 	Space: key.NewBinding(
 		key.WithKeys(" "),
-		key.WithHelp("space", "check / uncheck task"),
+		key.WithHelp("space", "toggle task done"),
 	),
 	ShiftRight: key.NewBinding(
 		key.WithKeys("shift+right"),
@@ -110,7 +111,7 @@ var Keys = KeyMap{
 	),
 	MoveToInbox: key.NewBinding(
 		key.WithKeys("i"),
-		key.WithHelp("i", "move task inbox"),
+		key.WithHelp("i", "move task to inbox"),
 	),
 	Contexts: key.NewBinding(
 		key.WithKeys("c"),
@@ -119,6 +120,10 @@ var Keys = KeyMap{
 	CopyTasks: key.NewBinding(
 		key.WithKeys("k"),
 		key.WithHelp("k", "copy tasks"),
+	),
+	ScheduleTask: key.NewBinding(
+		key.WithKeys("m"),
+		key.WithHelp("m", "move task to day"),
 	),
 }
 
@@ -132,7 +137,7 @@ type ContextViewKeyMap struct {
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
 // of the key.Map interface.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.ShiftRight, k.ShiftLeft, k.Help, k.Quit}
+	return []key.Binding{k.Quit}
 }
 
 // FullHelp returns keybindings for the expanded help view. It's part of the
@@ -142,7 +147,8 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.New, k.Enter, k.Space, k.Back},
 		{k.NextDay, k.PrevDay, k.Right, k.Left},
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
-		{k.Num, k.MoveToToday, k.MoveToInbox, k.Esc},
+		{k.MoveToToday, k.MoveToInbox, k.ScheduleTask},
+		{k.Num, k.Esc},
 		{k.Help, k.Contexts, k.CopyTasks, k.Quit},
 	}
 }

@@ -2,6 +2,7 @@ package scheduled
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
@@ -37,4 +38,18 @@ func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
 	k.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel"))
 	return huh.NewForm(huh.NewGroup(titleInput), huh.NewGroup(contextSelect)).
 		WithLayout(huh.LayoutGrid(1, 2)).WithKeyMap(k)
+}
+
+func CreateScheduleTaskForm(task *Task, days map[int]string) *huh.Form {
+	var options []huh.Option[int]
+	for k, v := range days {
+		options = append(options, huh.NewOption(v, k))
+	}
+
+	s := huh.NewSelect[int]().Title(fmt.Sprintf("Move tasks '%s' to", task.Name)).Key("days").Options(options...)
+	s = s.Value(&task.Day)
+
+	k := huh.NewDefaultKeyMap()
+	k.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel"))
+	return huh.NewForm(huh.NewGroup(s)).WithLayout(huh.LayoutGrid(1, 2)).WithKeyMap(k)
 }
