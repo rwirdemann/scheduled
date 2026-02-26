@@ -270,7 +270,7 @@ func TestIntegration_SaveFunction(t *testing.T) {
 	m := createTestModel(t)
 
 	// Create a task
-	m.board.CreateTask("Test Task", 0)
+	m.board.CreateTask("Test Task", 0, "description")
 
 	// Save
 	m.Save()

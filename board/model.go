@@ -132,12 +132,13 @@ func (m *Model) loadTasks() {
 }
 
 // UpdateTask updates the name and context of the task with the given ID.
-func (m *Model) UpdateTask(name string, context int) {
+func (m *Model) UpdateTask(name string, context int, description string) {
 	l := m.lists[m.LastFocus]
 	oldTask := l.SelectedItem().(scheduled.Task)
 	task := oldTask
 	task.Name = name
 	task.Context = context
+	task.Desc = description
 	index := l.Index()
 	l.RemoveItem(index)
 	l.InsertItem(index, task)
@@ -155,8 +156,13 @@ func (m *Model) UpdateTask(name string, context int) {
 }
 
 // CreateTask creates a new task with the given name and context.
-func (m *Model) CreateTask(name string, context int) {
-	t := scheduled.Task{Name: name, Context: context, Day: m.LastFocus, ID: uuid.NewString()}
+func (m *Model) CreateTask(name string, context int, desciption string) {
+	t := scheduled.Task{
+		Name:    name,
+		Context: context,
+		Desc:    desciption,
+		Day:     m.LastFocus,
+		ID:      uuid.NewString()}
 	l := m.lists[m.LastFocus]
 	l.InsertItem(len(l.Items()), t)
 

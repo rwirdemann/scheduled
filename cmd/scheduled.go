@@ -195,11 +195,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if f.State == huh.StateCompleted {
 				title := m.form.GetString("title")
 				context := m.form.GetInt("context")
+				description := m.form.GetString("description")
 				if m.mode == modeEdit {
-					m.board.UpdateTask(title, context)
+					m.board.UpdateTask(title, context, description)
 				}
 				if m.mode == modeNew {
-					m.board.CreateTask(title, context)
+					m.board.CreateTask(title, context, description)
 				}
 				m.root = m.root.Hide(panelEdit)
 				if m.showHelp {
@@ -461,7 +462,7 @@ func (m model) View() string {
 func renderPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
 	if panelID == panelEdit {
-		model.form.WithHeight(h).WithWidth(w / 2)
+		model.form.WithHeight(h).WithWidth(w)
 		return model.form.View()
 	}
 	if panelID == panelSchedule {

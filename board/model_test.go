@@ -94,7 +94,7 @@ func TestModel_CreateTask(t *testing.T) {
 	initialCount := len(m.GetTasksForPanel(Monday))
 
 	// Create a new task
-	m.CreateTask("New Task", 1)
+	m.CreateTask("New Task", 1, "description")
 
 	tasks := m.GetTasksForPanel(Monday)
 	if len(tasks) != initialCount+1 {
@@ -130,7 +130,7 @@ func TestModel_UpdateTask(t *testing.T) {
 	m.lists[Monday].Select(0)
 
 	// Update the task
-	m.UpdateTask("Updated Name", 2)
+	m.UpdateTask("Updated Name", 2, "description")
 
 	tasks := m.GetTasksForPanel(Monday)
 	if len(tasks) != 1 {

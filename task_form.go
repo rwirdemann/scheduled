@@ -25,6 +25,10 @@ func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
 		options = append(options, huh.NewOption(c.Name, c.ID))
 	}
 
+	descText := huh.NewText().
+		Title("Description").
+		Key("description")
+
 	contextSelect := huh.NewSelect[int]().
 		Title("Context").
 		Key("context").
@@ -32,12 +36,16 @@ func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
 	if task != nil {
 		titleInput = titleInput.Value(&task.Name)
 		contextSelect = contextSelect.Value(&task.Context)
+		descText = descText.Value(&task.Desc)
 	}
 
 	k := huh.NewDefaultKeyMap()
 	k.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel"))
-	return huh.NewForm(huh.NewGroup(titleInput), huh.NewGroup(contextSelect)).
-		WithLayout(huh.LayoutGrid(1, 2)).WithKeyMap(k)
+	return huh.NewForm(
+		huh.NewGroup(titleInput),
+		huh.NewGroup(contextSelect),
+		huh.NewGroup(descText)).
+		WithLayout(huh.LayoutGrid(1, 3)).WithKeyMap(k)
 }
 
 func CreateScheduleTaskForm(task *Task, days map[int]string) *huh.Form {
