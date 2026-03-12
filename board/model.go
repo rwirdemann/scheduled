@@ -34,7 +34,6 @@ var Days = map[int]string{
 
 // Model represents the main application model managing tasks and their context.
 type Model struct {
-	repository      repository
 	weekPlan        *scheduled.WeekPlan
 	LastFocus       int
 	lists           map[int]*ListModel
@@ -43,11 +42,10 @@ type Model struct {
 }
 
 // NewModel creates a new instance of the application model with the provided
-// repository.
-func NewModel(repository repository) *Model {
+// WeekPlan.
+func NewModel(weekPlan *scheduled.WeekPlan) *Model {
 	m := &Model{
-		repository:      repository,
-		weekPlan:        scheduled.NewWeekPlan(repository.LoadTasks()),
+		weekPlan:        weekPlan,
 		LastFocus:       Inbox,
 		selectedContext: scheduled.ContextNone,
 		lists:           make(map[int]*ListModel),
@@ -258,11 +256,6 @@ func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
 	}
 }
 
-// SaveTasks saves the tasks in the model to the repository.
-func (m *Model) SaveTasks() {
-	m.repository.SaveTasks(m.weekPlan.AllTasks())
-}
-
 // Render returns the rendered view of the list at the given index.
 func (m *Model) Render(panelID int, w, h int) string {
 	if l, exists := m.lists[panelID]; exists {
@@ -289,9 +282,4 @@ func (m *Model) setWeek(week int) {
 			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, Days[i], day.Format("02.01.2006"))
 		}
 	}
-}
-
-type repository interface {
-	LoadTasks() []scheduled.Task
-	SaveTasks(tasks []scheduled.Task)
 }

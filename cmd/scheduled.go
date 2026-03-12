@@ -94,6 +94,7 @@ type model struct {
 
 	statusMessage string
 	statusTimeout time.Time
+	weekPlan      *scheduled.WeekPlan
 }
 
 func newModel(root panel.Model, repository repository) model {
@@ -115,6 +116,8 @@ func newModel(root panel.Model, repository repository) model {
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
+	weekPlan := scheduled.NewWeekPlan(repository.LoadTasks())
+
 	m := model{
 		root:            root,
 		repository:      repository,
@@ -125,7 +128,8 @@ func newModel(root panel.Model, repository repository) model {
 		mode:            modeNormal,
 		contextList:     contextList,
 		contextEdit:     textinput.New(),
-		board:           board.NewModel(repository),
+		weekPlan:        weekPlan,
+		board:           board.NewModel(weekPlan),
 	}
 	m.contextEdit.Placeholder = "Context"
 	m.contextEdit.Width = 20
@@ -137,7 +141,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Save() {
-	m.board.SaveTasks()
+	m.repository.SaveTasks(m.weekPlan.AllTasks())
 	m.repository.SaveContexts(m.contexts())
 }
 
@@ -256,7 +260,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				i := m.contextList.SelectedItem()
 				m.board.SetContext(i.(scheduled.Context))
 				m.root = m.root.Hide(leftPanel)
-				m.board.SetListTitle(board.Inbox, fmt.Sprintf("[ESC] Inbox (Week %d)", m.board.Week()))
+				m.board.SetListTitle(board.Inbox,
+					fmt.Sprintf("[ESC] Inbox (Week %d)", m.board.Week()))
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				return m, nil
 			case key.Matches(msg, m.contextViewKeys.NewContext):
@@ -357,8 +362,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.form.Init()
 			}
 		case key.Matches(msg, m.keys.Num):
-			key := msg.String()
-			panelNum, _ := strconv.Atoi(key)
+			panelNum, _ := strconv.Atoi(msg.String())
 			m.root = m.root.SetFocus(panelNum)
 			m.board.DeselectAndRestoreIndex(panelNum)
 			return m, nil
@@ -472,7 +476,7 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 	return model.board.Render(panelID, w, h)
 }
 
-func renderHelp(m tea.Model, panelID int, w, h int) string {
+func renderHelp(m tea.Model, _ int, _, _ int) string {
 	model := m.(model)
 	if model.mode == modeContexts {
 		return model.help.ShortHelpView(model.keys.ShortHelp())
@@ -480,19 +484,19 @@ func renderHelp(m tea.Model, panelID int, w, h int) string {
 	return model.help.FullHelpView(model.keys.FullHelp())
 }
 
-func renderContextPanel(m tea.Model, panelID int, w, h int) string {
+func renderContextPanel(m tea.Model, _ int, w, h int) string {
 	model := m.(model)
 	model.contextList.SetSize(w, h-2)
-	help := model.help.FullHelpView(model.contextViewKeys.FullHelp())
-	return model.contextList.View() + "\n" + help
+	fhv := model.help.FullHelpView(model.contextViewKeys.FullHelp())
+	return model.contextList.View() + "\n" + fhv
 }
 
-func renderContextEditPanel(m tea.Model, panelID int, w, h int) string {
+func renderContextEditPanel(m tea.Model, _ int, _, _ int) string {
 	model := m.(model)
 	return model.contextEdit.View()
 }
 
-func renderStatus(m tea.Model, panelID int, w, h int) string {
+func renderStatus(m tea.Model, _ int, _, _ int) string {
 	model := m.(model)
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("42")).
