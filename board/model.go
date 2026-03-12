@@ -106,12 +106,14 @@ func (m *Model) IncWeek() {
 	}
 }
 
+// refreshLists populates all lists with its actual task according to the
+// selected context.
 func (m *Model) refreshLists() {
 	for day := Inbox; day <= Sunday; day++ {
 		tasks := m.plan.TasksForDayAndContext(day, m.selectedContext.ID)
 		items := make([]list.Item, len(tasks))
 		for i, task := range tasks {
-			items[i] = task
+			items[i] = ListItem{Task: task}
 		}
 		m.lists[day].SetItems(items)
 	}
@@ -226,7 +228,7 @@ func (m *Model) MoveTask(from, to int) {
 func (m *Model) GetSelectedTask(listIndex int) (scheduled.Task, bool) {
 	if l, exists := m.lists[listIndex]; exists {
 		if i := l.SelectedItem(); i != nil {
-			return i.(scheduled.Task), true
+			return i.(ListItem).Task, true
 		}
 	}
 	return scheduled.Task{}, false
@@ -284,10 +286,12 @@ func (m *Model) setWeek(week int) {
 	for i := Inbox; i <= Sunday; i++ {
 		monday := date.GetMondayOfWeek(m.week)
 		if i == Inbox {
-			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s", m.week, m.selectedContext.Name)
+			m.lists[i].Title = fmt.Sprintf("[ESC] Inbox (Week %d) - %s",
+				m.week, m.selectedContext.Name)
 		} else {
 			day := monday.AddDate(0, 0, i-1)
-			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)", i, Days[i], day.Format("02.01.2006"))
+			m.lists[i].Title = fmt.Sprintf("[%d] %s (%s)",
+				i, Days[i], day.Format("02.01.2006"))
 		}
 	}
 }
