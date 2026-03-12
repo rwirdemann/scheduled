@@ -8,7 +8,6 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v1.0.0
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/x/exp/teatest v0.0.0-20260311145557-c83711a11ffa
 	github.com/google/uuid v1.6.0
 	github.com/rwirdemann/nestiles v0.0.0-20260111134051-1bd4cdeac403
 )

@@ -94,7 +94,7 @@ type model struct {
 
 	statusMessage string
 	statusTimeout time.Time
-	weekPlan      *scheduled.Plan
+	plan          *scheduled.Plan
 }
 
 func newModel(root panel.Model, repository repository) model {
@@ -128,7 +128,7 @@ func newModel(root panel.Model, repository repository) model {
 		mode:            modeNormal,
 		contextList:     contextList,
 		contextEdit:     textinput.New(),
-		weekPlan:        weekPlan,
+		plan:            weekPlan,
 		board:           board.NewModel(weekPlan),
 	}
 	m.contextEdit.Placeholder = "Context"
@@ -141,7 +141,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Save() {
-	m.repository.SaveTasks(m.weekPlan.AllTasks())
+	m.repository.SaveTasks(m.plan.AllTasks())
 	m.repository.SaveContexts(m.contexts())
 }
 
@@ -279,122 +279,123 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.contextList, cmd = m.contextList.Update(msg)
 		return m, cmd
-	}
-
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.termWidth = msg.Width
-		m.termHeight = msg.Height
-	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, m.keys.ScheduleTask):
-			focusedPanel, _ := m.root.Focused()
-			if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-				m.scheduleTaskForm = scheduled.CreateScheduleTaskForm(&t, board.Days)
+	case modeNormal:
+		switch msg := msg.(type) {
+		case tea.WindowSizeMsg:
+			m.termWidth = msg.Width
+			m.termHeight = msg.Height
+		case tea.KeyMsg:
+			switch {
+			case key.Matches(msg, m.keys.ScheduleTask):
+				focusedPanel, _ := m.root.Focused()
+				if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
+					m.scheduleTaskForm = scheduled.CreateScheduleTaskForm(&t, board.Days)
+					m.root = m.root.Hide(panelEdit)
+					m.root = m.root.Hide(panelHelp)
+					m.root = m.root.Show(panelSchedule)
+					m.root = m.root.SetFocus(panelSchedule)
+					m.mode = modeSchedule
+					return m, m.scheduleTaskForm.Init()
+				}
+				return m, nil
+			case key.Matches(msg, m.keys.Help):
 				m.root = m.root.Hide(panelEdit)
-				m.root = m.root.Hide(panelHelp)
-				m.root = m.root.Show(panelSchedule)
-				m.root = m.root.SetFocus(panelSchedule)
-				m.mode = modeSchedule
-				return m, m.scheduleTaskForm.Init()
-			}
-			return m, nil
-		case key.Matches(msg, m.keys.Help):
-			m.root = m.root.Hide(panelEdit)
-			m.showHelp = !m.showHelp
-			if m.showHelp {
-				m.root = m.root.Show(panelHelp)
-			} else {
-				m.root = m.root.Hide(panelHelp)
-			}
-			return m, nil
-		case key.Matches(msg, m.keys.Right):
-			m.board.IncWeek()
-			return m, nil
-		case key.Matches(msg, m.keys.Left):
-			m.board.DecWeek()
-			return m, nil
-		case key.Matches(msg, m.keys.ShiftLeft):
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.board.MoveTask(focusedPanel.ID, focusedPanel.ID-1)
-			}
-		case key.Matches(msg, m.keys.ShiftRight):
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.board.MoveTask(focusedPanel.ID, focusedPanel.ID+1)
-			}
-		case key.Matches(msg, m.keys.ShiftUp):
-			focusedPanel, _ := m.root.Focused()
-			m.board.MoveUp(focusedPanel.ID)
-		case key.Matches(msg, m.keys.ShiftDown):
-			focusedPanel, _ := m.root.Focused()
-			m.board.MoveDown(focusedPanel.ID)
-		case key.Matches(msg, m.keys.New):
-			// Preselect the currently selected context
-			selectedContext := m.board.GetSelectedContext()
-			prefilledTask := &scheduled.Task{Context: selectedContext.ID}
-			m.form = scheduled.CreateTaskForm(prefilledTask, m.contexts())
-			m.root = m.root.Hide(panelHelp)
-			m.root = m.root.Show(panelEdit)
-			m.root = m.root.SetFocus(panelEdit)
-			m.mode = modeNew
-			return m, m.form.Init()
-		case key.Matches(msg, m.keys.Esc):
-			m.root = m.root.Hide(panelEdit)
-			m.root = m.root.SetFocus(board.Inbox)
-			m.board.DeselectAndRestoreIndex(board.Inbox)
-			return m, nil
-		case key.Matches(msg, m.keys.Space):
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.board.ToggleDone(focusedPanel.ID)
-			}
-		case key.Matches(msg, m.keys.Back):
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.board.DeleteTask(focusedPanel.ID)
-			}
-		case key.Matches(msg, m.keys.Enter):
-			focusedPanel, _ := m.root.Focused()
-			if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-				m.form = scheduled.CreateTaskForm(&t, m.contexts())
+				m.showHelp = !m.showHelp
+				if m.showHelp {
+					m.root = m.root.Show(panelHelp)
+				} else {
+					m.root = m.root.Hide(panelHelp)
+				}
+				return m, nil
+			case key.Matches(msg, m.keys.Right):
+				m.board.IncWeek()
+				return m, nil
+			case key.Matches(msg, m.keys.Left):
+				m.board.DecWeek()
+				return m, nil
+			case key.Matches(msg, m.keys.ShiftLeft):
+				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+					m.board.MoveTask(focusedPanel.ID, focusedPanel.ID-1)
+				}
+			case key.Matches(msg, m.keys.ShiftRight):
+				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+					m.board.MoveTask(focusedPanel.ID, focusedPanel.ID+1)
+				}
+			case key.Matches(msg, m.keys.ShiftUp):
+				focusedPanel, _ := m.root.Focused()
+				m.board.MoveUp(focusedPanel.ID)
+			case key.Matches(msg, m.keys.ShiftDown):
+				focusedPanel, _ := m.root.Focused()
+				m.board.MoveDown(focusedPanel.ID)
+			case key.Matches(msg, m.keys.New):
+				// Preselect the currently selected context
+				selectedContext := m.board.GetSelectedContext()
+				prefilledTask := &scheduled.Task{Context: selectedContext.ID}
+				m.form = scheduled.CreateTaskForm(prefilledTask, m.contexts())
 				m.root = m.root.Hide(panelHelp)
 				m.root = m.root.Show(panelEdit)
 				m.root = m.root.SetFocus(panelEdit)
-				m.mode = modeEdit
+				m.mode = modeNew
 				return m, m.form.Init()
+			case key.Matches(msg, m.keys.Esc):
+				m.root = m.root.Hide(panelEdit)
+				m.root = m.root.SetFocus(board.Inbox)
+				m.board.DeselectAndRestoreIndex(board.Inbox)
+				return m, nil
+			case key.Matches(msg, m.keys.Space):
+				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+					m.board.ToggleDone(focusedPanel.ID)
+				}
+			case key.Matches(msg, m.keys.Back):
+				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+					m.board.DeleteTask(focusedPanel.ID)
+				}
+			case key.Matches(msg, m.keys.Enter):
+				focusedPanel, _ := m.root.Focused()
+				if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
+					m.form = scheduled.CreateTaskForm(&t, m.contexts())
+					m.root = m.root.Hide(panelHelp)
+					m.root = m.root.Show(panelEdit)
+					m.root = m.root.SetFocus(panelEdit)
+					m.mode = modeEdit
+					return m, m.form.Init()
+				}
+			case key.Matches(msg, m.keys.Num):
+				panelNum, _ := strconv.Atoi(msg.String())
+				m.root = m.root.SetFocus(panelNum)
+				m.board.DeselectAndRestoreIndex(panelNum)
+				return m, nil
+			case key.Matches(msg, m.keys.MoveToToday):
+				today := time.Now().Weekday()
+				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+					m.board.MoveTask(focusedPanel.ID, int(today))
+				}
+			case key.Matches(msg, m.keys.MoveToInbox):
+				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
+					m.board.MoveTask(focusedPanel.ID, board.Inbox)
+				}
+			case key.Matches(msg, m.keys.Contexts):
+				m.mode = modeContexts
+				m.root = m.root.Show(leftPanel)
+				m.root.SetFocus(leftPanel)
+				return m, nil
+			case key.Matches(msg, m.keys.CopyTasks):
+				focusedPanel, _ := m.root.Focused()
+				if focusedPanel.ID != panelEdit {
+					tasks := m.board.GetTasksForPanel(focusedPanel.ID)
+					clipboardText := clpboard.FormatTasks(m.contexts(), tasks)
+					_ = clipboard.WriteAll(clipboardText)
+					return m.showStatusMessage(fmt.Sprintf("%d tasks copied to clipboard", len(tasks)))
+				}
+				return m, nil
 			}
-		case key.Matches(msg, m.keys.Num):
-			panelNum, _ := strconv.Atoi(msg.String())
-			m.root = m.root.SetFocus(panelNum)
-			m.board.DeselectAndRestoreIndex(panelNum)
-			return m, nil
-		case key.Matches(msg, m.keys.MoveToToday):
-			today := time.Now().Weekday()
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.board.MoveTask(focusedPanel.ID, int(today))
-			}
-		case key.Matches(msg, m.keys.MoveToInbox):
-			if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
-				m.board.MoveTask(focusedPanel.ID, board.Inbox)
-			}
-		case key.Matches(msg, m.keys.Contexts):
-			m.mode = modeContexts
-			m.root = m.root.Show(leftPanel)
-			m.root.SetFocus(leftPanel)
-			return m, nil
-		case key.Matches(msg, m.keys.CopyTasks):
-			focusedPanel, _ := m.root.Focused()
-			if focusedPanel.ID != panelEdit {
-				tasks := m.board.GetTasksForPanel(focusedPanel.ID)
-				clipboardText := clpboard.FormatTasks(m.contexts(), tasks)
-				_ = clipboard.WriteAll(clipboardText)
-				return m.showStatusMessage(fmt.Sprintf("%d tasks copied to clipboard", len(tasks)))
-			}
-			return m, nil
 		}
 	}
+
 	m.root, cmd = m.root.Update(msg)
 	cmds = append(cmds, cmd)
 
-	// find focused panel and Update() its task list
+	// Find focused panel and Update() its task list
 	if focusedPanel, exists := m.root.Focused(); exists {
 		m.board.DeselectAndRestoreIndex(focusedPanel.ID)
 		cmd = m.board.Update(focusedPanel.ID, msg)

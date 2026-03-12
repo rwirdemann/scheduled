@@ -34,7 +34,7 @@ var Days = map[int]string{
 
 // Model represents the main application model managing tasks and their context.
 type Model struct {
-	weekPlan        *scheduled.Plan
+	plan            *scheduled.Plan
 	LastFocus       int
 	lists           map[int]*ListModel
 	week            int
@@ -43,9 +43,9 @@ type Model struct {
 
 // NewModel creates a new instance of the application model with the provided
 // Plan.
-func NewModel(weekPlan *scheduled.Plan) *Model {
+func NewModel(plan *scheduled.Plan) *Model {
 	m := &Model{
-		weekPlan:        weekPlan,
+		plan:            plan,
 		LastFocus:       Inbox,
 		selectedContext: scheduled.ContextNone,
 		lists:           make(map[int]*ListModel),
@@ -108,7 +108,7 @@ func (m *Model) IncWeek() {
 
 func (m *Model) refreshLists() {
 	for day := Inbox; day <= Sunday; day++ {
-		tasks := m.weekPlan.TasksForDayAndContext(day, m.selectedContext.ID)
+		tasks := m.plan.TasksForDayAndContext(day, m.selectedContext.ID)
 		items := make([]list.Item, len(tasks))
 		for i, task := range tasks {
 			items[i] = task
@@ -124,7 +124,7 @@ func (m *Model) UpdateTask(name string, context int, description string) {
 		return
 	}
 
-	if err := m.weekPlan.UpdateTask(task.ID, name, context, description); err != nil {
+	if err := m.plan.UpdateTask(task.ID, name, context, description); err != nil {
 		return
 	}
 
@@ -133,7 +133,7 @@ func (m *Model) UpdateTask(name string, context int, description string) {
 
 // CreateTask creates a new task with the given name and context.
 func (m *Model) CreateTask(name string, context int, description string) {
-	m.weekPlan.CreateTask(name, context, description, m.LastFocus)
+	m.plan.CreateTask(name, context, description, m.LastFocus)
 	m.refreshLists()
 }
 
@@ -148,7 +148,7 @@ func (m *Model) MoveUp(listIndex int) {
 	if !ok {
 		return
 	}
-	if err := m.weekPlan.MoveTaskUp(task.ID); err != nil {
+	if err := m.plan.MoveTaskUp(task.ID); err != nil {
 		return
 	}
 	m.refreshLists()
@@ -164,7 +164,7 @@ func (m *Model) MoveDown(listIndex int) {
 	if !ok {
 		return
 	}
-	if err := m.weekPlan.MoveTaskDown(task.ID); err != nil {
+	if err := m.plan.MoveTaskDown(task.ID); err != nil {
 		return
 	}
 	m.refreshLists()
@@ -181,7 +181,7 @@ func (m *Model) ToggleDone(listIndex int) {
 	if !ok {
 		return
 	}
-	if err := m.weekPlan.ToggleDone(task.ID); err != nil {
+	if err := m.plan.ToggleDone(task.ID); err != nil {
 		return
 	}
 	m.refreshLists()
@@ -193,7 +193,7 @@ func (m *Model) DeleteTask(listIndex int) {
 	if !ok {
 		return
 	}
-	if err := m.weekPlan.DeleteDoneTask(task.ID); err != nil {
+	if err := m.plan.DeleteDoneTask(task.ID); err != nil {
 		return
 	}
 	m.refreshLists()
@@ -215,7 +215,7 @@ func (m *Model) MoveTask(from, to int) {
 	if !ok {
 		return
 	}
-	if err := m.weekPlan.MoveTaskToDay(task.ID, to); err != nil {
+	if err := m.plan.MoveTaskToDay(task.ID, to); err != nil {
 		return
 	}
 	m.refreshLists()
@@ -237,7 +237,7 @@ func (m *Model) GetTasksForPanel(listIndex int) []scheduled.Task {
 	if listIndex < Inbox || listIndex > Sunday {
 		return []scheduled.Task{}
 	}
-	return m.weekPlan.TasksForDayAndContext(listIndex, m.selectedContext.ID)
+	return m.plan.TasksForDayAndContext(listIndex, m.selectedContext.ID)
 }
 
 // Update updates the model based on the given message and returns a command to
@@ -276,7 +276,7 @@ func (m *Model) Render(panelID int, w, h int) string {
 // IsContextUsed returns true if the given context is used in any of the tasks
 // in the model.
 func (m *Model) IsContextUsed(c scheduled.Context) bool {
-	return m.weekPlan.IsContextUsed(c.ID)
+	return m.plan.IsContextUsed(c.ID)
 }
 
 func (m *Model) setWeek(week int) {
