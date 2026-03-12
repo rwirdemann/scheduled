@@ -2,12 +2,10 @@ package board
 
 import (
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/google/uuid"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/date"
 )
@@ -37,6 +35,7 @@ var Days = map[int]string{
 // Model represents the main application model managing tasks and their context.
 type Model struct {
 	repository      repository
+	weekPlan        *scheduled.WeekPlan
 	LastFocus       int
 	lists           map[int]*ListModel
 	week            int
@@ -48,6 +47,7 @@ type Model struct {
 func NewModel(repository repository) *Model {
 	m := &Model{
 		repository:      repository,
+		weekPlan:        scheduled.NewWeekPlan(repository.LoadTasks()),
 		LastFocus:       Inbox,
 		selectedContext: scheduled.ContextNone,
 		lists:           make(map[int]*ListModel),
@@ -61,9 +61,9 @@ func NewModel(repository repository) *Model {
 		l.SetShowHelp(false)
 		m.lists[i] = NewListModel(l)
 	}
-	m.loadTasks()
 
-	// Deselect all lists except the focused one (Inbox)
+	m.refreshLists()
+
 	for i := Monday; i <= Sunday; i++ {
 		m.lists[i].Deselect()
 	}
@@ -87,9 +87,7 @@ func (m *Model) GetSelectedContext() scheduled.Context {
 // SetContext sets the currently selected context in the Model.
 func (m *Model) SetContext(context scheduled.Context) {
 	m.selectedContext = context
-	for _, l := range m.lists {
-		l.SetContext(context)
-	}
+	m.refreshLists()
 }
 
 // DecWeek decreases the current week, wrapping to 52 if below 1.
@@ -110,66 +108,35 @@ func (m *Model) IncWeek() {
 	}
 }
 
-func (m *Model) loadTasks() {
-	var tasksByDay = make(map[int][]list.Item)
-	tasks := m.repository.LoadTasks()
-	for _, task := range tasks {
-		tasksByDay[task.Day] = append(tasksByDay[task.Day], task)
-	}
-
-	// Sort tasks by their Pos field
-	for _, items := range tasksByDay {
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].(scheduled.Task).Pos < items[j].(scheduled.Task).Pos
-		})
-	}
-
-	for day := range m.lists {
-		for i, item := range tasksByDay[day] {
-			m.lists[day].InsertItem(i, item)
+func (m *Model) refreshLists() {
+	for day := Inbox; day <= Sunday; day++ {
+		tasks := m.weekPlan.TasksForDayAndContext(day, m.selectedContext.ID)
+		items := make([]list.Item, len(tasks))
+		for i, task := range tasks {
+			items[i] = task
 		}
+		m.lists[day].SetItems(items)
 	}
 }
 
-// UpdateTask updates the name and context of the task with the given ID.
+// UpdateTask updates the name and context of the selected task.
 func (m *Model) UpdateTask(name string, context int, description string) {
-	l := m.lists[m.LastFocus]
-	oldTask := l.SelectedItem().(scheduled.Task)
-	task := oldTask
-	task.Name = name
-	task.Context = context
-	task.Desc = description
-	index := l.Index()
-	l.RemoveItem(index)
-	l.InsertItem(index, task)
-
-	// Synchronize allItems when a context filter is active
-	if l.allItems != nil {
-		for i, item := range l.allItems {
-			t := item.(scheduled.Task)
-			if t.ID == oldTask.ID {
-				l.allItems[i] = task
-				break
-			}
-		}
+	task, ok := m.GetSelectedTask(m.LastFocus)
+	if !ok {
+		return
 	}
+
+	if err := m.weekPlan.UpdateTask(task.ID, name, context, description); err != nil {
+		return
+	}
+
+	m.refreshLists()
 }
 
 // CreateTask creates a new task with the given name and context.
-func (m *Model) CreateTask(name string, context int, desciption string) {
-	t := scheduled.Task{
-		Name:    name,
-		Context: context,
-		Desc:    desciption,
-		Day:     m.LastFocus,
-		ID:      uuid.NewString()}
-	l := m.lists[m.LastFocus]
-	l.InsertItem(len(l.Items()), t)
-
-	// Synchronize allItems when a context filter is active
-	if l.allItems != nil {
-		l.allItems = append(l.allItems, t)
-	}
+func (m *Model) CreateTask(name string, context int, description string) {
+	m.weekPlan.CreateTask(name, context, description, m.LastFocus)
+	m.refreshLists()
 }
 
 // SetListTitle sets the title of the list at the given index.
@@ -179,49 +146,51 @@ func (m *Model) SetListTitle(listIndex int, title string) {
 
 // MoveUp moves the selected item up in the list at the given index.
 func (m *Model) MoveUp(listIndex int) {
-	if l, exists := m.lists[listIndex]; exists {
-		l.MoveItemUp()
+	task, ok := m.GetSelectedTask(listIndex)
+	if !ok {
+		return
 	}
+	if err := m.weekPlan.MoveTaskUp(task.ID); err != nil {
+		return
+	}
+	m.refreshLists()
 }
 
 // MoveDown moves the selected item down in the list at the given index.
 func (m *Model) MoveDown(listIndex int) {
-	if l, exists := m.lists[listIndex]; exists {
-		l.MoveItemDown()
+	task, ok := m.GetSelectedTask(listIndex)
+	if !ok {
+		return
 	}
+	if err := m.weekPlan.MoveTaskDown(task.ID); err != nil {
+		return
+	}
+	m.refreshLists()
 }
 
 // ToggleDone toggles the done state of the selected task in the list at the
 // given index.
 func (m *Model) ToggleDone(listIndex int) {
-	if l, exists := m.lists[listIndex]; exists {
-		l.ToggleDone()
+	task, ok := m.GetSelectedTask(listIndex)
+	if !ok {
+		return
 	}
+	if err := m.weekPlan.ToggleDone(task.ID); err != nil {
+		return
+	}
+	m.refreshLists()
 }
 
 // DeleteTask deletes the selected task in the list at the given index.
 func (m *Model) DeleteTask(listIndex int) {
-	if l, exists := m.lists[listIndex]; exists {
-		i := l.SelectedItem()
-		if i == nil {
-			return
-		}
-		task := i.(scheduled.Task)
-		if task.Done {
-			l.RemoveItem(l.Index())
-
-			// Synchronize allItems when a context filter is active
-			if l.allItems != nil {
-				for idx, item := range l.allItems {
-					t := item.(scheduled.Task)
-					if t.ID == task.ID {
-						l.allItems = append(l.allItems[:idx], l.allItems[idx+1:]...)
-						break
-					}
-				}
-			}
-		}
+	task, ok := m.GetSelectedTask(listIndex)
+	if !ok {
+		return
 	}
+	if err := m.weekPlan.DeleteDoneTask(task.ID); err != nil {
+		return
+	}
+	m.refreshLists()
 }
 
 // MoveTask moves the selected task from one list to another.
@@ -229,37 +198,21 @@ func (m *Model) MoveTask(from, to int) {
 	if from < Inbox || from > Sunday {
 		return
 	}
-
 	if to < Inbox || to > Sunday {
 		return
 	}
-
 	if from == to {
 		return
 	}
 
-	if item := m.lists[from].SelectedItem(); item != nil {
-		oldTask := item.(scheduled.Task)
-		t := oldTask
-		t.Day = to
-		m.lists[from].RemoveItem(m.lists[from].Index())
-		m.lists[to].InsertItem(len(m.lists[to].Items()), t)
-
-		// Synchronize allItems when a context filter is active
-		if m.lists[from].allItems != nil {
-			for idx, item := range m.lists[from].allItems {
-				task := item.(scheduled.Task)
-				if task.ID == oldTask.ID {
-					m.lists[from].allItems = append(m.lists[from].allItems[:idx], m.lists[from].allItems[idx+1:]...)
-					break
-				}
-			}
-		}
-
-		if m.lists[to].allItems != nil {
-			m.lists[to].allItems = append(m.lists[to].allItems, t)
-		}
+	task, ok := m.GetSelectedTask(from)
+	if !ok {
+		return
 	}
+	if err := m.weekPlan.MoveTaskToDay(task.ID, to); err != nil {
+		return
+	}
+	m.refreshLists()
 }
 
 // GetSelectedTask returns the selected task in the list at the given index,
@@ -275,15 +228,10 @@ func (m *Model) GetSelectedTask(listIndex int) (scheduled.Task, bool) {
 
 // GetTasksForPanel returns a slice of tasks for the specified panel index.
 func (m *Model) GetTasksForPanel(listIndex int) []scheduled.Task {
-	if l, exists := m.lists[listIndex]; exists {
-		items := l.Items()
-		tasks := make([]scheduled.Task, 0, len(items))
-		for _, item := range items {
-			tasks = append(tasks, item.(scheduled.Task))
-		}
-		return tasks
+	if listIndex < Inbox || listIndex > Sunday {
+		return []scheduled.Task{}
 	}
-	return []scheduled.Task{}
+	return m.weekPlan.TasksForDayAndContext(listIndex, m.selectedContext.ID)
 }
 
 // Update updates the model based on the given message and returns a command to
@@ -312,26 +260,7 @@ func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
 
 // SaveTasks saves the tasks in the model to the repository.
 func (m *Model) SaveTasks() {
-	m.repository.SaveTasks(m.flattenTasks())
-}
-
-func (m *Model) flattenTasks() []scheduled.Task {
-	var tasks []scheduled.Task
-	for _, ll := range m.lists {
-		var itemsToSave []list.Item
-		if ll.allItems != nil {
-			itemsToSave = ll.allItems
-		} else {
-			itemsToSave = ll.Items()
-		}
-
-		for i, item := range itemsToSave {
-			t := item.(scheduled.Task)
-			t.Pos = i
-			tasks = append(tasks, t)
-		}
-	}
-	return tasks
+	m.repository.SaveTasks(m.weekPlan.AllTasks())
 }
 
 // Render returns the rendered view of the list at the given index.
@@ -346,12 +275,7 @@ func (m *Model) Render(panelID int, w, h int) string {
 // IsContextUsed returns true if the given context is used in any of the tasks
 // in the model.
 func (m *Model) IsContextUsed(c scheduled.Context) bool {
-	for _, t := range m.flattenTasks() {
-		if t.Context == c.ID {
-			return true
-		}
-	}
-	return false
+	return m.weekPlan.IsContextUsed(c.ID)
 }
 
 func (m *Model) setWeek(week int) {
