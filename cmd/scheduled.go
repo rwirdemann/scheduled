@@ -94,7 +94,7 @@ type model struct {
 
 	statusMessage string
 	statusTimeout time.Time
-	weekPlan      *scheduled.WeekPlan
+	weekPlan      *scheduled.Plan
 }
 
 func newModel(root panel.Model, repository repository) model {

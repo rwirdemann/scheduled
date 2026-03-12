@@ -34,7 +34,7 @@ var Days = map[int]string{
 
 // Model represents the main application model managing tasks and their context.
 type Model struct {
-	weekPlan        *scheduled.WeekPlan
+	weekPlan        *scheduled.Plan
 	LastFocus       int
 	lists           map[int]*ListModel
 	week            int
@@ -42,8 +42,8 @@ type Model struct {
 }
 
 // NewModel creates a new instance of the application model with the provided
-// WeekPlan.
-func NewModel(weekPlan *scheduled.WeekPlan) *Model {
+// Plan.
+func NewModel(weekPlan *scheduled.Plan) *Model {
 	m := &Model{
 		weekPlan:        weekPlan,
 		LastFocus:       Inbox,
@@ -152,6 +152,10 @@ func (m *Model) MoveUp(listIndex int) {
 		return
 	}
 	m.refreshLists()
+
+	// Keep selection
+	l := m.lists[listIndex]
+	l.Select(l.Index() - 1)
 }
 
 // MoveDown moves the selected item down in the list at the given index.
@@ -164,6 +168,10 @@ func (m *Model) MoveDown(listIndex int) {
 		return
 	}
 	m.refreshLists()
+
+	// Keep selection
+	l := m.lists[listIndex]
+	l.Select(l.Index() + 1)
 }
 
 // ToggleDone toggles the done state of the selected task in the list at the

@@ -8,24 +8,24 @@ import (
 	"github.com/google/uuid"
 )
 
-type WeekPlan struct {
+type Plan struct {
 	tasks []Task
 }
 
-func NewWeekPlan(tasks []Task) *WeekPlan {
+func NewWeekPlan(tasks []Task) *Plan {
 	cloned := slices.Clone(tasks)
 	sortTasks(cloned)
 	normalizeAllPositions(cloned)
-	return &WeekPlan{tasks: cloned}
+	return &Plan{tasks: cloned}
 }
 
-func (p *WeekPlan) AllTasks() []Task {
+func (p *Plan) AllTasks() []Task {
 	cloned := slices.Clone(p.tasks)
 	sortTasks(cloned)
 	return cloned
 }
 
-func (p *WeekPlan) TasksForDay(day int) []Task {
+func (p *Plan) TasksForDay(day int) []Task {
 	var result []Task
 	for _, task := range p.tasks {
 		if task.Day == day {
@@ -36,7 +36,7 @@ func (p *WeekPlan) TasksForDay(day int) []Task {
 	return result
 }
 
-func (p *WeekPlan) TasksForDayAndContext(day int, contextID int) []Task {
+func (p *Plan) TasksForDayAndContext(day int, contextID int) []Task {
 	if contextID == ContextNone.ID {
 		return p.TasksForDay(day)
 	}
@@ -51,7 +51,7 @@ func (p *WeekPlan) TasksForDayAndContext(day int, contextID int) []Task {
 	return result
 }
 
-func (p *WeekPlan) CreateTask(name string, contextID int, description string, day int) Task {
+func (p *Plan) CreateTask(name string, contextID int, description string, day int) Task {
 	task := Task{
 		ID:      uuid.NewString(),
 		Name:    name,
@@ -66,7 +66,7 @@ func (p *WeekPlan) CreateTask(name string, contextID int, description string, da
 	return task
 }
 
-func (p *WeekPlan) UpdateTask(id, name string, contextID int, description string) error {
+func (p *Plan) UpdateTask(id, name string, contextID int, description string) error {
 	index := p.indexByID(id)
 	if index < 0 {
 		return fmt.Errorf("task %q not found", id)
@@ -78,7 +78,7 @@ func (p *WeekPlan) UpdateTask(id, name string, contextID int, description string
 	return nil
 }
 
-func (p *WeekPlan) ToggleDone(id string) error {
+func (p *Plan) ToggleDone(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
 		return fmt.Errorf("task %q not found", id)
@@ -88,7 +88,7 @@ func (p *WeekPlan) ToggleDone(id string) error {
 	return nil
 }
 
-func (p *WeekPlan) DeleteDoneTask(id string) error {
+func (p *Plan) DeleteDoneTask(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
 		return fmt.Errorf("task %q not found", id)
@@ -104,7 +104,7 @@ func (p *WeekPlan) DeleteDoneTask(id string) error {
 	return nil
 }
 
-func (p *WeekPlan) MoveTaskToDay(id string, toDay int) error {
+func (p *Plan) MoveTaskToDay(id string, toDay int) error {
 	index := p.indexByID(id)
 	if index < 0 {
 		return fmt.Errorf("task %q not found", id)
@@ -123,7 +123,7 @@ func (p *WeekPlan) MoveTaskToDay(id string, toDay int) error {
 	return nil
 }
 
-func (p *WeekPlan) MoveTaskUp(id string) error {
+func (p *Plan) MoveTaskUp(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
 		return fmt.Errorf("task %q not found", id)
@@ -142,7 +142,7 @@ func (p *WeekPlan) MoveTaskUp(id string) error {
 	return nil
 }
 
-func (p *WeekPlan) MoveTaskDown(id string) error {
+func (p *Plan) MoveTaskDown(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
 		return fmt.Errorf("task %q not found", id)
@@ -161,7 +161,7 @@ func (p *WeekPlan) MoveTaskDown(id string) error {
 	return nil
 }
 
-func (p *WeekPlan) IsContextUsed(contextID int) bool {
+func (p *Plan) IsContextUsed(contextID int) bool {
 	for _, task := range p.tasks {
 		if task.Context == contextID {
 			return true
@@ -170,7 +170,7 @@ func (p *WeekPlan) IsContextUsed(contextID int) bool {
 	return false
 }
 
-func (p *WeekPlan) indexByID(id string) int {
+func (p *Plan) indexByID(id string) int {
 	for i, task := range p.tasks {
 		if task.ID == id {
 			return i
@@ -179,7 +179,7 @@ func (p *WeekPlan) indexByID(id string) int {
 	return -1
 }
 
-func (p *WeekPlan) indicesForDay(day int) []int {
+func (p *Plan) indicesForDay(day int) []int {
 	var indices []int
 	for i := range p.tasks {
 		if p.tasks[i].Day == day {
