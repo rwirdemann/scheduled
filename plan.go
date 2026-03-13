@@ -12,7 +12,7 @@ type Plan struct {
 	tasks []Task
 }
 
-func NewWeekPlan(tasks []Task) *Plan {
+func NewPlan(tasks []Task) *Plan {
 	cloned := slices.Clone(tasks)
 	sortTasks(cloned)
 	normalizeAllPositions(cloned)

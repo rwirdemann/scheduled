@@ -116,7 +116,7 @@ func newModel(root panel.Model, repository repository) model {
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
-	weekPlan := scheduled.NewWeekPlan(repository.LoadTasks())
+	weekPlan := scheduled.NewPlan(repository.LoadTasks())
 
 	m := model{
 		root:            root,
