@@ -8,11 +8,19 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
+type Layout int
+
+const (
+	LayoutHorizontal Layout = iota
+	LayoutVertical
+)
+
 // CreateTaskForm creates a form to create new or edit existings tasks.
-func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
-	titleInput := huh.NewInput().
+func CreateTaskForm(task *Task, layout Layout, contexts []Context) *huh.Form {
+	titleInput := huh.NewText().
 		Title("Title").
 		Key("title").
+		Lines(2).
 		Validate(func(str string) error {
 			if str == "" {
 				return errors.New("please enter a title")
@@ -27,6 +35,7 @@ func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
 
 	descText := huh.NewText().
 		Title("Description").
+		Placeholder("alt-enter - newline\nenter     - submit").
 		Key("description")
 
 	contextSelect := huh.NewSelect[int]().
@@ -39,13 +48,25 @@ func CreateTaskForm(task *Task, contexts []Context) *huh.Form {
 		descText = descText.Value(&task.Desc)
 	}
 
+	// Height needs to be set after value assignment
+	contextSelect.Height(1)
+
 	k := huh.NewDefaultKeyMap()
 	k.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel"))
+
+	var withLayout huh.Layout
+	switch layout {
+	case LayoutHorizontal:
+		withLayout = huh.LayoutGrid(1, 3)
+	case LayoutVertical:
+		withLayout = huh.LayoutStack
+	}
+
 	return huh.NewForm(
 		huh.NewGroup(titleInput),
 		huh.NewGroup(contextSelect),
 		huh.NewGroup(descText)).
-		WithLayout(huh.LayoutGrid(1, 3)).WithKeyMap(k)
+		WithLayout(withLayout).WithKeyMap(k).WithShowHelp(false)
 }
 
 func CreateScheduleTaskForm(task *Task, days map[int]string) *huh.Form {

@@ -75,7 +75,7 @@ type model struct {
 
 	board *board.Model
 
-	form             *huh.Form
+	taskForm         *huh.Form
 	scheduleTaskForm *huh.Form
 	repository       repository
 
@@ -193,13 +193,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 	case modeNew, modeEdit:
-		form, cmd := m.form.Update(msg)
+		form, cmd := m.taskForm.Update(msg)
 		if f, ok := form.(*huh.Form); ok {
-			m.form = f
+			m.taskForm = f
 			if f.State == huh.StateCompleted {
-				title := m.form.GetString("title")
-				context := m.form.GetInt("context")
-				description := m.form.GetString("description")
+				title := m.taskForm.GetString("title")
+				context := m.taskForm.GetInt("context")
+				description := m.taskForm.GetString("description")
 				if m.mode == modeEdit {
 					m.board.UpdateTask(title, context, description)
 				}
@@ -331,12 +331,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Preselect the currently selected context
 				selectedContext := m.board.GetSelectedContext()
 				prefilledTask := &scheduled.Task{Context: selectedContext.ID}
-				m.form = scheduled.CreateTaskForm(prefilledTask, m.contexts())
-				m.root = m.root.Hide(panelHelp)
-				m.root = m.root.Show(panelEdit)
-				m.root = m.root.SetFocus(panelEdit)
+				m.taskForm = scheduled.CreateTaskForm(prefilledTask, scheduled.LayoutVertical, m.contexts())
 				m.mode = modeNew
-				return m, m.form.Init()
+				return m, m.taskForm.Init()
 			case key.Matches(msg, m.keys.Esc):
 				m.root = m.root.Hide(panelEdit)
 				m.root = m.root.SetFocus(board.Inbox)
@@ -353,12 +350,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Enter):
 				focusedPanel, _ := m.root.Focused()
 				if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-					m.form = scheduled.CreateTaskForm(&t, m.contexts())
-					m.root = m.root.Hide(panelHelp)
-					m.root = m.root.Show(panelEdit)
-					m.root = m.root.SetFocus(panelEdit)
+					m.taskForm = scheduled.CreateTaskForm(&t, scheduled.LayoutVertical, m.contexts())
 					m.mode = modeEdit
-					return m, m.form.Init()
+					return m, m.taskForm.Init()
 				}
 			case key.Matches(msg, m.keys.Num):
 				panelNum, _ := strconv.Atoi(msg.String())
@@ -453,7 +447,7 @@ func (m model) addContext(name string) (model, error) {
 }
 
 func (m model) View() string {
-	const minWidth = 120
+	const minWidth = 136
 	const minHeight = 40
 
 	if m.termWidth < minWidth || m.termHeight < minHeight {
@@ -466,12 +460,15 @@ func (m model) View() string {
 
 func renderPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
-	if panelID == panelEdit {
-		model.form.WithHeight(h).WithWidth(w)
-		return model.form.View()
+
+	// Render task form in currently active list panel
+	if (model.mode == modeEdit || model.mode == modeNew) && panelID == model.board.LastFocus {
+		model.taskForm.WithHeight(h).WithWidth(w)
+		return model.taskForm.View()
 	}
+
 	if panelID == panelSchedule {
-		model.scheduleTaskForm.WithHeight(h).WithWidth(w / 2)
+		model.scheduleTaskForm.WithHeight(h).WithWidth(w)
 		return model.scheduleTaskForm.View()
 	}
 	return model.board.Render(panelID, w, h)
