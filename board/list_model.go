@@ -1,6 +1,6 @@
 package board
 
-import "github.com/charmbracelet/bubbles/list"
+import "charm.land/bubbles/v2/list"
 
 // ListModel represents a custom list model with additional UI state.
 type ListModel struct {

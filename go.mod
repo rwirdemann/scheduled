@@ -3,25 +3,30 @@ module github.com/rwirdemann/scheduled
 go 1.26.1
 
 require (
+	charm.land/bubbles/v2 v2.0.0
+	charm.land/bubbletea/v2 v2.0.2
+	charm.land/huh/v2 v2.0.3
+	charm.land/lipgloss/v2 v2.0.2
 	github.com/atotto/clipboard v0.1.4
-	github.com/charmbracelet/bubbles v1.0.0
-	github.com/charmbracelet/bubbletea v1.3.10
-	github.com/charmbracelet/huh v1.0.0
-	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/google/uuid v1.6.0
 	github.com/rwirdemann/nestiles v0.0.0-20260111134051-1bd4cdeac403
 )
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/aymanbagabas/go-udiff v0.4.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
+	github.com/charmbracelet/bubbletea v1.3.10 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
+	github.com/charmbracelet/lipgloss v1.1.0 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
 	github.com/charmbracelet/x/exp/golden v0.0.0-20260311145557-c83711a11ffa // indirect
+	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/strings v0.1.0 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
+	github.com/charmbracelet/x/termios v0.1.1 // indirect
+	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -37,6 +42,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 )

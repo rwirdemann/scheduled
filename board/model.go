@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/date"
 )
@@ -269,7 +269,7 @@ func (m *Model) DeselectAndRestoreIndex(focusedPanelID int) {
 // Render returns the rendered view of the list at the given index.
 func (m *Model) Render(panelID int, w, h int) string {
 	if l, exists := m.lists[panelID]; exists {
-		l.Model.SetSize(w, h)
+		l.Model.SetSize(w-2, h)
 		return l.Model.View()
 	}
 	return ""

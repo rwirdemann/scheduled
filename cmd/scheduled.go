@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/atotto/clipboard"
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
 	"github.com/rwirdemann/scheduled/board"
@@ -132,12 +132,13 @@ func newModel(root panel.Model, repository repository) model {
 		board:           board.NewModel(weekPlan),
 	}
 	m.contextEdit.Placeholder = "Context"
-	m.contextEdit.Width = 20
+	m.contextEdit.SetWidth(20)
 	return m
 }
 
 func (m model) Init() tea.Cmd {
-	return autoSaveAfter(15 * time.Second)
+	// return autoSaveAfter(15 * time.Second)
+	return nil
 }
 
 func (m model) Save() {
@@ -150,7 +151,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
 			m.Save()
@@ -227,7 +228,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case modeContexts:
 		if m.editContextShown {
 			switch msg := msg.(type) {
-			case tea.KeyMsg:
+			case tea.KeyPressMsg:
 				switch {
 				case key.Matches(msg, m.contextViewKeys.CloseView):
 					m.root = m.root.Hide(contextEditPanel)
@@ -248,7 +249,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		switch msg := msg.(type) {
-		case tea.KeyMsg:
+		case tea.KeyPressMsg:
 			switch {
 			case key.Matches(msg, m.contextViewKeys.CloseView):
 				m.mode = modeNormal
@@ -284,7 +285,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.WindowSizeMsg:
 			m.termWidth = msg.Width
 			m.termHeight = msg.Height
-		case tea.KeyMsg:
+		case tea.KeyPressMsg:
 			switch {
 			case key.Matches(msg, m.keys.ScheduleTask):
 				focusedPanel, _ := m.root.Focused()
@@ -446,16 +447,20 @@ func (m model) addContext(name string) (model, error) {
 	return m, nil
 }
 
-func (m model) View() string {
+func (m model) View() tea.View {
 	const minWidth = 136
 	const minHeight = 40
 
 	if m.termWidth < minWidth || m.termHeight < minHeight {
-		return fmt.Sprintf("\n\n  Terminal too small!\n\n  Current size: %dx%d\n  Minimum size: %dx%d\n\n  Please resize your terminal.\n",
-			m.termWidth, m.termHeight, minWidth, minHeight)
+		v := tea.NewView(fmt.Sprintf("\n\n  Terminal too small!\n\n  Current size: %dx%d\n  Minimum size: %dx%d\n\n  Please resize your terminal.\n",
+			m.termWidth, m.termHeight, minWidth, minHeight))
+		v.AltScreen = true
+		return v
 	}
 
-	return m.root.View(m)
+	v := tea.NewView(m.root.View(m))
+	v.AltScreen = true
+	return v
 }
 
 func renderPanel(m tea.Model, panelID int, w, h int) string {
@@ -484,7 +489,7 @@ func renderHelp(m tea.Model, _ int, _, _ int) string {
 
 func renderContextPanel(m tea.Model, _ int, w, h int) string {
 	model := m.(model)
-	model.contextList.SetSize(w, h-2)
+	model.contextList.SetSize(w, h-4)
 	fhv := model.help.FullHelpView(model.contextViewKeys.FullHelp())
 	return model.contextList.View() + "\n" + fhv
 }
@@ -567,7 +572,7 @@ func main() {
 	repo := file.NewRepository(*tasksFile)
 	m := createModel(repo)
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("there's been an error: %v", err)
 		os.Exit(1)
