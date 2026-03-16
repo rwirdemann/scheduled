@@ -137,8 +137,7 @@ func newModel(root panel.Model, repository repository) model {
 }
 
 func (m model) Init() tea.Cmd {
-	// return autoSaveAfter(15 * time.Second)
-	return nil
+	return autoSaveAfter(15 * time.Second)
 }
 
 func (m model) Save() {
@@ -344,6 +343,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					m.board.ToggleDone(focusedPanel.ID)
 				}
+				return m, nil
 			case key.Matches(msg, m.keys.Back):
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					m.board.DeleteTask(focusedPanel.ID)
@@ -573,8 +573,12 @@ func main() {
 	m := createModel(repo)
 
 	p := tea.NewProgram(m)
-	if _, err := p.Run(); err != nil {
+	finalModel, err := p.Run()
+	if err != nil {
 		fmt.Printf("there's been an error: %v", err)
 		os.Exit(1)
+	}
+	if fm, ok := finalModel.(model); ok {
+		fm.Save()
 	}
 }

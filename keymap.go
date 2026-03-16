@@ -66,7 +66,7 @@ var Keys = KeyMap{
 		key.WithHelp("backspace", "delete task"),
 	),
 	Space: key.NewBinding(
-		key.WithKeys(" "),
+		key.WithKeys("space"),
 		key.WithHelp("space", "toggle task done"),
 	),
 	ShiftRight: key.NewBinding(
