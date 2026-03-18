@@ -154,8 +154,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case scheduled.TelegramTaskMsg:
-		m.board.AddTask(msg.Name)
-		return m.showStatusMessage(fmt.Sprintf("Telegram: %q added to inbox", msg.Name))
+		m.board.AddTask(msg.Name, msg.Day)
+		dayLabel := board.Days[msg.Day]
+		return m.showStatusMessage(fmt.Sprintf("Telegram: %q added to %s", msg.Name, dayLabel))
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):

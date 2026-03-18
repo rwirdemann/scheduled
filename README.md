@@ -40,6 +40,34 @@ Tasks can be added to the inbox by sending a message to a Telegram bot.
 
 4. Send any text message to your bot — it will appear as a new task in the inbox within a few seconds.
 
+### Scheduling tasks to a specific day
+
+Prefix the message with a weekday name to add the task directly to that day's list instead of the inbox. Both German and English names are supported, long form and abbreviated:
+
+| Prefix | Day |
+|---|---|
+| `Montag` / `Mo` / `Monday` / `Mon` | Monday |
+| `Dienstag` / `Di` / `Tuesday` / `Tue` | Tuesday |
+| `Mittwoch` / `Mi` / `Wednesday` / `Wed` | Wednesday |
+| `Donnerstag` / `Do` / `Thursday` / `Thu` | Thursday |
+| `Freitag` / `Fr` / `Friday` / `Fri` | Friday |
+| `Samstag` / `Sa` / `Saturday` / `Sat` | Saturday |
+| `Sonntag` / `So` / `Sunday` / `Sun` | Sunday |
+
+**Examples:**
+
+```
+Mo Projektplanung fertigstellen
+```
+→ Added to Monday as "Projektplanung fertigstellen"
+
+```
+Do Review vorbereiten
+```
+→ Added to Thursday as "Review vorbereiten"
+
+Messages without a weekday prefix are added to the inbox as before.
+
 > **Note:** The `.env` file contains a secret. Never commit it to version control.
 
 ## Development

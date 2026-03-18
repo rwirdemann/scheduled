@@ -139,10 +139,11 @@ func (m *Model) CreateTask(name string, context int, description string) {
 	m.refreshLists()
 }
 
-// AddTask implements scheduled.InputPort. Adds a task to the inbox
-// with ContextNone. Must be called from the Bubble Tea Update goroutine.
-func (m *Model) AddTask(name string) {
-	m.plan.CreateTask(name, scheduled.ContextNone.ID, "", Inbox)
+// AddTask implements scheduled.InputPort. Adds a task to the given day
+// with ContextNone. Pass day=0 (Inbox) when no weekday prefix was detected.
+// Must be called from the Bubble Tea Update goroutine.
+func (m *Model) AddTask(name string, day int) {
+	m.plan.CreateTask(name, scheduled.ContextNone.ID, "", day)
 	m.refreshLists()
 }
 

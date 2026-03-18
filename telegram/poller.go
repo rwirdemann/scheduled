@@ -42,6 +42,7 @@ func (p *Poller) poll() {
 		if update.Message == nil {
 			continue
 		}
-		p.sendFn(scheduled.TelegramTaskMsg{Name: update.Message.Text})
+		day, name := ParseWeekday(update.Message.Text)
+		p.sendFn(scheduled.TelegramTaskMsg{Name: name, Day: day})
 	}
 }
