@@ -139,6 +139,17 @@ func (m *Model) CreateTask(name string, context int, description string) {
 	m.refreshLists()
 }
 
+// AddTask implements scheduled.InputPort. Adds a task to the inbox
+// with ContextNone. Must be called from the Bubble Tea Update goroutine.
+func (m *Model) AddTask(name string) {
+	m.plan.CreateTask(name, scheduled.ContextNone.ID, "", Inbox)
+	m.refreshLists()
+}
+
+// Compile-time check: ensures *Model implements scheduled.InputPort.
+// If AddTask is ever removed or renamed, the build fails immediately.
+var _ scheduled.InputPort = (*Model)(nil)
+
 // SetListTitle sets the title of the list at the given index.
 func (m *Model) SetListTitle(listIndex int, title string) {
 	m.lists[listIndex].Title = fmt.Sprintf("%s - %s", title, m.selectedContext.Name)

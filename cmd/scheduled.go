@@ -19,9 +19,11 @@ import (
 	"github.com/atotto/clipboard"
 	"github.com/rwirdemann/nestiles/panel"
 	"github.com/rwirdemann/scheduled"
+	"github.com/joho/godotenv"
 	"github.com/rwirdemann/scheduled/board"
 	clpboard "github.com/rwirdemann/scheduled/clipboard"
 	"github.com/rwirdemann/scheduled/file"
+	"github.com/rwirdemann/scheduled/telegram"
 )
 
 var version = "dev"
@@ -150,6 +152,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case scheduled.TelegramTaskMsg:
+		m.board.AddTask(msg.Name)
+		return m.showStatusMessage(fmt.Sprintf("Telegram: %q added to inbox", msg.Name))
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -560,6 +565,8 @@ func createModel(repository repository) model {
 }
 
 func main() {
+	_ = godotenv.Load()
+
 	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
 	showVersion := flag.Bool("version", false, "show version")
 	flag.Parse()
@@ -573,6 +580,11 @@ func main() {
 	m := createModel(repo)
 
 	p := tea.NewProgram(m)
+
+	if poller := telegram.NewPoller(p.Send); poller != nil {
+		poller.Start()
+	}
+
 	finalModel, err := p.Run()
 	if err != nil {
 		fmt.Printf("there's been an error: %v", err)
