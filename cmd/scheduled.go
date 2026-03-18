@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -565,7 +566,7 @@ func createModel(repository repository) model {
 }
 
 func main() {
-	_ = godotenv.Load()
+	_ = godotenv.Load(filepath.Join(os.Getenv("HOME"), ".scheduled", ".env"))
 
 	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
 	showVersion := flag.Bool("version", false, "show version")

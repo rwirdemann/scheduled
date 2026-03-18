@@ -30,7 +30,7 @@ Tasks can be added to the inbox by sending a message to a Telegram bot.
 
 1. Create a bot via [@BotFather](https://t.me/BotFather) on Telegram and copy the API token.
 
-2. Create a `.env` file in the project root (next to the binary):
+2. Create a `.env` file in `$HOME/.scheduled/`:
 
    ```
    TELEGRAM_BOT_TOKEN=your-token-here
