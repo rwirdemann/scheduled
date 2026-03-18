@@ -22,6 +22,26 @@ Tasks and contexts are stored as JSON in `$HOME/.scheduled`. The default name of
 
 The task and context files are saved when the application exits and every 15 seconds in the background.
 
+## Telegram Integration
+
+Tasks can be added to the inbox by sending a message to a Telegram bot.
+
+### Setup
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) on Telegram and copy the API token.
+
+2. Create a `.env` file in the project root (next to the binary):
+
+   ```
+   TELEGRAM_BOT_TOKEN=your-token-here
+   ```
+
+3. Start Scheduled as usual. The bot starts polling automatically in the background. If `TELEGRAM_BOT_TOKEN` is not set, the integration is silently disabled.
+
+4. Send any text message to your bot — it will appear as a new task in the inbox within a few seconds.
+
+> **Note:** The `.env` file contains a secret. Never commit it to version control.
+
 ## Development
 
 ```bash
