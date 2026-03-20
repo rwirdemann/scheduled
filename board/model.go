@@ -135,7 +135,12 @@ func (m *Model) UpdateTask(name string, context int, description string) {
 
 // CreateTask creates a new task with the given name and context.
 func (m *Model) CreateTask(name string, context int, description string) {
-	m.plan.CreateTask(name, context, description, m.LastFocus)
+	day := m.LastFocus
+	if parsedDay, cleanName := scheduled.ParseWeekday(name); parsedDay != 0 {
+		day = parsedDay
+		name = cleanName
+	}
+	m.plan.CreateTask(name, context, description, day)
 	m.refreshLists()
 }
 
