@@ -36,7 +36,6 @@ const (
 	leftPanel        = 70
 	contextEditPanel = 80
 	statusPanel      = 90
-	panelSchedule    = 100
 )
 
 type mode int
@@ -182,19 +181,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if f.State == huh.StateCompleted {
 				day := m.scheduleTaskForm.GetInt("days")
 				m.board.MoveTask(m.board.LastFocus, day)
-				m.root = m.root.Hide(panelSchedule)
-				if m.showHelp {
-					m.root = m.root.Show(panelHelp)
-				}
-				m.root = m.root.SetFocus(m.board.LastFocus)
 				m.mode = modeNormal
 			}
 			if f.State == huh.StateAborted {
-				m.root = m.root.Hide(panelSchedule)
-				if m.showHelp {
-					m.root = m.root.Show(panelHelp)
-				}
-				m.root = m.root.SetFocus(m.board.LastFocus)
 				m.mode = modeNormal
 			}
 		}
@@ -296,11 +285,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.ScheduleTask):
 				focusedPanel, _ := m.root.Focused()
 				if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-					m.scheduleTaskForm = scheduled.CreateScheduleTaskForm(&t, board.Days)
-					m.root = m.root.Hide(panelEdit)
-					m.root = m.root.Hide(panelHelp)
-					m.root = m.root.Show(panelSchedule)
-					m.root = m.root.SetFocus(panelSchedule)
+					m.scheduleTaskForm = scheduled.CreateScheduleTaskForm(&t, board.Days, m.board.LastFocus)
 					m.mode = modeSchedule
 					return m, m.scheduleTaskForm.Init()
 				}
@@ -479,8 +464,8 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 		return model.taskForm.View()
 	}
 
-	if panelID == panelSchedule {
-		model.scheduleTaskForm.WithHeight(h).WithWidth(w)
+	if model.mode == modeSchedule && panelID == model.board.LastFocus {
+		model.scheduleTaskForm.WithHeight(h - 1).WithWidth(w)
 		return model.scheduleTaskForm.View()
 	}
 	return model.board.Render(panelID, w, h)
@@ -541,7 +526,6 @@ func createModel(repository repository) model {
 	}
 	statusPanel := panel.New().WithId(statusPanel).WithRatio(18).WithContent(renderStatus).WithBorder().WithVisible(false).WithMaxHeight(3)
 	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(6)
-	schedulePanel := panel.New().WithId(panelSchedule).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(6)
 	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true).WithMaxHeight(6)
 
 	rightPanel := panel.New().WithRatio(84).WithLayout(panel.LayoutDirectionVertical).
@@ -549,7 +533,6 @@ func createModel(repository repository) model {
 		Append(row1).
 		Append(row2).
 		Append(editPanel).
-		Append(schedulePanel).
 		Append(helpPanel)
 
 	leftPanel := panel.New().WithId(leftPanel).WithRatio(16).WithVisible(false).WithLayout(panel.LayoutDirectionVertical)

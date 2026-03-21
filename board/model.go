@@ -234,10 +234,23 @@ func (m *Model) MoveTask(from, to int) {
 	if !ok {
 		return
 	}
+
+	l := m.lists[from]
+	idx := l.Index()
+	count := len(l.Items())
+
 	if err := m.plan.MoveTaskToDay(task.ID, to); err != nil {
 		return
 	}
 	m.refreshLists()
+
+	if count > 1 {
+		if idx >= count-1 {
+			m.lists[from].Select(idx - 1)
+		} else {
+			m.lists[from].Select(idx)
+		}
+	}
 }
 
 // GetSelectedTask returns the selected task in the list at the given index,

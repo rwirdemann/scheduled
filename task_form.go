@@ -67,16 +67,23 @@ func CreateTaskForm(task *Task, layout Layout, contexts []Context) *huh.Form {
 		WithLayout(withLayout).WithKeyMap(k).WithShowHelp(false)
 }
 
-func CreateScheduleTaskForm(task *Task, days map[int]string) *huh.Form {
+// CreateScheduleTaskForm creates a form to move a task to a different day.
+// The current day is excluded from the list of options.
+func CreateScheduleTaskForm(task *Task, days map[int]string, currentDay int) *huh.Form {
 	var options []huh.Option[int]
-	for k, v := range days {
-		options = append(options, huh.NewOption(v, k))
+	// Monday(1)..Sunday(7), then Inbox(0)
+	order := []int{0, 1, 2, 3, 4, 5, 6, 7}
+	for _, k := range order {
+		if k == currentDay {
+			continue
+		}
+		options = append(options, huh.NewOption(days[k], k))
 	}
 
-	s := huh.NewSelect[int]().Title(fmt.Sprintf("Move tasks '%s' to", task.Name)).Key("days").Options(options...)
+	s := huh.NewSelect[int]().Title(fmt.Sprintf("Move '%s' to", task.Name)).Key("days").Options(options...)
 	s = s.Value(&task.Day)
 
 	k := huh.NewDefaultKeyMap()
 	k.Quit = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "Cancel"))
-	return huh.NewForm(huh.NewGroup(s)).WithLayout(huh.LayoutGrid(1, 2)).WithKeyMap(k)
+	return huh.NewForm(huh.NewGroup(s)).WithKeyMap(k)
 }
