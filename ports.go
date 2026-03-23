@@ -3,7 +3,7 @@ package scheduled
 // InputPort is implemented by any component that can accept a new task
 // from an external input source.
 type InputPort interface {
-	AddTask(name string, day int)
+	AddTask(name string, day int) Task
 }
 
 // TelegramTaskMsg is sent from the Telegram poller to the Bubble Tea

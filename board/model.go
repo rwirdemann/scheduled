@@ -119,37 +119,50 @@ func (m *Model) refreshLists() {
 	}
 }
 
-// UpdateTask updates the name and context of the selected task.
-func (m *Model) UpdateTask(name string, context int, description string) {
+// UpdateTask updates the name, context, and description of the selected
+// task and returns the updated task.
+func (m *Model) UpdateTask(
+	name string, context int, description string,
+) (scheduled.Task, bool) {
 	task, ok := m.GetSelectedTask(m.LastFocus)
 	if !ok {
-		return
+		return scheduled.Task{}, false
 	}
 
 	if err := m.plan.UpdateTask(task.ID, name, context, description); err != nil {
-		return
+		return scheduled.Task{}, false
 	}
 
 	m.refreshLists()
+	task.Name = name
+	task.Context = context
+	task.Desc = description
+	return task, true
 }
 
-// CreateTask creates a new task with the given name and context.
-func (m *Model) CreateTask(name string, context int, description string) {
+// CreateTask creates a new task with the given name and context and
+// returns it.
+func (m *Model) CreateTask(
+	name string, context int, description string,
+) scheduled.Task {
 	day := m.LastFocus
 	if parsedDay, cleanName := scheduled.ParseWeekday(name); parsedDay != 0 {
 		day = parsedDay
 		name = cleanName
 	}
-	m.plan.CreateTask(name, context, description, day)
+	task := m.plan.CreateTask(name, context, description, day)
 	m.refreshLists()
+	return task
 }
 
 // AddTask implements scheduled.InputPort. Adds a task to the given day
-// with ContextNone. Pass day=0 (Inbox) when no weekday prefix was detected.
-// Must be called from the Bubble Tea Update goroutine.
-func (m *Model) AddTask(name string, day int) {
-	m.plan.CreateTask(name, scheduled.ContextNone.ID, "", day)
+// with ContextNone and returns the created task. Pass day=0 (Inbox) when
+// no weekday prefix was detected. Must be called from the Bubble Tea
+// Update goroutine.
+func (m *Model) AddTask(name string, day int) scheduled.Task {
+	task := m.plan.CreateTask(name, scheduled.ContextNone.ID, "", day)
 	m.refreshLists()
+	return task
 }
 
 // Compile-time check: ensures *Model implements scheduled.InputPort.
@@ -193,17 +206,19 @@ func (m *Model) MoveDown(listIndex int) {
 	l.Select(l.Index() + 1)
 }
 
-// ToggleDone toggles the done state of the selected task in the list at the
-// given index.
-func (m *Model) ToggleDone(listIndex int) {
+// ToggleDone toggles the done state of the selected task in the list at
+// the given index and returns the updated task.
+func (m *Model) ToggleDone(listIndex int) (scheduled.Task, bool) {
 	task, ok := m.GetSelectedTask(listIndex)
 	if !ok {
-		return
+		return scheduled.Task{}, false
 	}
 	if err := m.plan.ToggleDone(task.ID); err != nil {
-		return
+		return scheduled.Task{}, false
 	}
 	m.refreshLists()
+	task.Done = !task.Done
+	return task, true
 }
 
 // DeleteTask deletes the selected task in the list at the given index.
@@ -218,21 +233,22 @@ func (m *Model) DeleteTask(listIndex int) {
 	m.refreshLists()
 }
 
-// MoveTask moves the selected task from one list to another.
-func (m *Model) MoveTask(from, to int) {
+// MoveTask moves the selected task from one list to another and returns
+// the moved task with its updated Day field.
+func (m *Model) MoveTask(from, to int) (scheduled.Task, bool) {
 	if from < Inbox || from > Sunday {
-		return
+		return scheduled.Task{}, false
 	}
 	if to < Inbox || to > Sunday {
-		return
+		return scheduled.Task{}, false
 	}
 	if from == to {
-		return
+		return scheduled.Task{}, false
 	}
 
 	task, ok := m.GetSelectedTask(from)
 	if !ok {
-		return
+		return scheduled.Task{}, false
 	}
 
 	l := m.lists[from]
@@ -240,7 +256,7 @@ func (m *Model) MoveTask(from, to int) {
 	count := len(l.Items())
 
 	if err := m.plan.MoveTaskToDay(task.ID, to); err != nil {
-		return
+		return scheduled.Task{}, false
 	}
 	m.refreshLists()
 
@@ -251,6 +267,8 @@ func (m *Model) MoveTask(from, to int) {
 			m.lists[from].Select(idx)
 		}
 	}
+	task.Day = to
+	return task, true
 }
 
 // GetSelectedTask returns the selected task in the list at the given index,

@@ -199,6 +199,31 @@ func (t Repository) SaveOrder(orders []scheduled.TaskOrder) {
 	}
 }
 
+// SaveTask upserts a single task in the repository file.
+func (t Repository) SaveTask(task scheduled.Task) {
+	tasks := t.LoadTasks()
+	for i, existing := range tasks {
+		if existing.ID == task.ID {
+			tasks[i] = task
+			t.SaveTasks(tasks)
+			return
+		}
+	}
+	t.SaveTasks(append(tasks, task))
+}
+
+// DeleteTask removes the task with the given id from the repository file.
+func (t Repository) DeleteTask(id string) {
+	tasks := t.LoadTasks()
+	filtered := tasks[:0]
+	for _, task := range tasks {
+		if task.ID != id {
+			filtered = append(filtered, task)
+		}
+	}
+	t.SaveTasks(filtered)
+}
+
 // SaveTasks saves the given tasks to the repository file.
 func (t Repository) SaveTasks(tasks []scheduled.Task) {
 	file, err := os.Create(path.Join(base, t.filenameTasks))
