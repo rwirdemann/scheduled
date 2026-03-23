@@ -31,6 +31,7 @@ func init() {
 type Repository struct {
 	filenameTasks    string
 	filenameContexts string
+	filenameOrder    string
 }
 
 // NewRepository creates a new Repository instance.
@@ -38,8 +39,15 @@ func NewRepository(filenameTasks string) Repository {
 	if filenameTasks == "" {
 		filenameTasks = "tasks.json"
 	}
-	filenameContexts := strings.TrimSuffix(filenameTasks, ".json") + ".contexts.json"
-	return Repository{filenameTasks: filenameTasks, filenameContexts: filenameContexts}
+	filenameContexts := strings.TrimSuffix(filenameTasks, ".json") +
+		".contexts.json"
+	filenameOrder := strings.TrimSuffix(filenameTasks, ".json") +
+		".order.json"
+	return Repository{
+		filenameTasks:    filenameTasks,
+		filenameContexts: filenameContexts,
+		filenameOrder:    filenameOrder,
+	}
 }
 
 // LoadContexts loads and returns all contexts from the repository file.
@@ -99,6 +107,96 @@ func (t Repository) LoadTasks() []scheduled.Task {
 	}
 
 	return tasks.Tasks
+}
+
+// LoadOrder loads task orders from the order file. If the order file does not
+// exist, it migrates positions from the tasks file and saves the result.
+func (t Repository) LoadOrder() []scheduled.TaskOrder {
+	orderPath := path.Join(base, t.filenameOrder)
+	if _, err := os.Stat(orderPath); os.IsNotExist(err) {
+		return t.migrateOrderFromTasks()
+	}
+
+	file, err := os.Open(orderPath)
+	if err != nil {
+		return []scheduled.TaskOrder{}
+	}
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	var data struct {
+		Orders []scheduled.TaskOrder `json:"orders"`
+	}
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&data); err != nil {
+		log.Printf("Failed to decode %s: %v", t.filenameOrder, err)
+		return []scheduled.TaskOrder{}
+	}
+
+	return data.Orders
+}
+
+// migrateOrderFromTasks reads the legacy pos field from tasks.json, builds a
+// TaskOrder slice, and saves it to the order file.
+func (t Repository) migrateOrderFromTasks() []scheduled.TaskOrder {
+	type taskWithPos struct {
+		ID  string `json:"id"`
+		Pos int    `json:"pos"`
+	}
+
+	file, err := os.Open(path.Join(base, t.filenameTasks))
+	if err != nil {
+		return []scheduled.TaskOrder{}
+	}
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	var data struct {
+		Tasks []taskWithPos `json:"tasks"`
+	}
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&data); err != nil {
+		return []scheduled.TaskOrder{}
+	}
+
+	orders := make([]scheduled.TaskOrder, 0, len(data.Tasks))
+	for _, tw := range data.Tasks {
+		if tw.ID != "" {
+			orders = append(
+				orders,
+				scheduled.TaskOrder{TaskID: tw.ID, Pos: tw.Pos},
+			)
+		}
+	}
+
+	t.SaveOrder(orders)
+	return orders
+}
+
+// SaveOrder saves task orders to the order file.
+func (t Repository) SaveOrder(orders []scheduled.TaskOrder) {
+	file, err := os.Create(path.Join(base, t.filenameOrder))
+	if err != nil {
+		log.Fatalf("Failed to create %s: %v", t.filenameOrder, err)
+	}
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	data := struct {
+		Orders []scheduled.TaskOrder `json:"orders"`
+	}{
+		Orders: orders,
+	}
+
+	encoder := json.NewEncoder(file)
+	if err := encoder.Encode(data); err != nil {
+		log.Fatalf("Failed to encode orders to %s: %v", t.filenameOrder, err)
+	}
 }
 
 // SaveTasks saves the given tasks to the repository file.

@@ -67,8 +67,10 @@ func autoSaveAfter(d time.Duration) tea.Cmd {
 type repository interface {
 	LoadContexts() []scheduled.Context
 	LoadTasks() []scheduled.Task
+	LoadOrder() []scheduled.TaskOrder
 	SaveContexts(contexts []scheduled.Context)
-	SaveTasks(contexts []scheduled.Task)
+	SaveTasks(tasks []scheduled.Task)
+	SaveOrder(orders []scheduled.TaskOrder)
 }
 
 type model struct {
@@ -118,7 +120,7 @@ func newModel(root panel.Model, repository repository) model {
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
-	weekPlan := scheduled.NewPlan(repository.LoadTasks())
+	weekPlan := scheduled.NewPlan(repository.LoadTasks(), repository.LoadOrder())
 
 	m := model{
 		root:            root,
@@ -144,6 +146,7 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Save() {
 	m.repository.SaveTasks(m.plan.AllTasks())
+	m.repository.SaveOrder(m.plan.AllOrders())
 	m.repository.SaveContexts(m.contexts())
 }
 
