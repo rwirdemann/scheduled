@@ -58,12 +58,15 @@ func clearStatusAfter(d time.Duration) tea.Cmd {
 
 type repository interface {
 	LoadContexts() []scheduled.Context
-	LoadTasks() []scheduled.Task
 	LoadOrder() []scheduled.TaskOrder
 	SaveContexts(contexts []scheduled.Context)
+	SaveOrder(orders []scheduled.TaskOrder)
+}
+
+type taskRepository interface {
+	LoadTasks() []scheduled.Task
 	SaveTask(task scheduled.Task)
 	DeleteTask(id string)
-	SaveOrder(orders []scheduled.TaskOrder)
 }
 
 type model struct {
@@ -74,6 +77,7 @@ type model struct {
 
 	taskForm         *huh.Form
 	scheduleTaskForm *huh.Form
+	taskRepository   taskRepository
 	repository       repository
 
 	showHelp        bool
@@ -94,7 +98,9 @@ type model struct {
 	plan          *scheduled.Plan
 }
 
-func newModel(root panel.Model, repository repository) model {
+func newModel(
+	root panel.Model, taskRepository taskRepository, repository repository,
+) model {
 	h := help.New()
 	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
@@ -113,10 +119,11 @@ func newModel(root panel.Model, repository repository) model {
 	contextList.SetShowStatusBar(false)
 	contextList.Title = "Contexts"
 
-	weekPlan := scheduled.NewPlan(repository.LoadTasks(), repository.LoadOrder())
+	weekPlan := scheduled.NewPlan(taskRepository.LoadTasks(), repository.LoadOrder())
 
 	m := model{
 		root:            root,
+		taskRepository:  taskRepository,
 		repository:      repository,
 		keys:            scheduled.Keys,
 		contextViewKeys: scheduled.ContextViewKeys,
@@ -149,7 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case scheduled.TelegramTaskMsg:
 		task := m.board.AddTask(msg.Name, msg.Day)
-		m.repository.SaveTask(task)
+		m.taskRepository.SaveTask(task)
 		dayLabel := board.Days[msg.Day]
 		return m.showStatusMessage(fmt.Sprintf("Telegram: %q added to %s", msg.Name, dayLabel))
 	case tea.KeyPressMsg:
@@ -174,7 +181,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if f.State == huh.StateCompleted {
 				day := m.scheduleTaskForm.GetInt("days")
 				if task, ok := m.board.MoveTask(m.board.LastFocus, day); ok {
-					m.repository.SaveTask(task)
+					m.taskRepository.SaveTask(task)
 				}
 				m.mode = modeNormal
 			}
@@ -193,12 +200,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				description := m.taskForm.GetString("description")
 				if m.mode == modeEdit {
 					if task, ok := m.board.UpdateTask(title, context, description); ok {
-						m.repository.SaveTask(task)
+						m.taskRepository.SaveTask(task)
 					}
 				}
 				if m.mode == modeNew {
 					task := m.board.CreateTask(title, context, description)
-					m.repository.SaveTask(task)
+					m.taskRepository.SaveTask(task)
 				}
 				m.root = m.root.Hide(panelEdit)
 				if m.showHelp {
@@ -306,13 +313,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.ShiftLeft):
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					if task, ok := m.board.MoveTask(focusedPanel.ID, focusedPanel.ID-1); ok {
-						m.repository.SaveTask(task)
+						m.taskRepository.SaveTask(task)
 					}
 				}
 			case key.Matches(msg, m.keys.ShiftRight):
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					if task, ok := m.board.MoveTask(focusedPanel.ID, focusedPanel.ID+1); ok {
-						m.repository.SaveTask(task)
+						m.taskRepository.SaveTask(task)
 					}
 				}
 			case key.Matches(msg, m.keys.ShiftUp):
@@ -336,7 +343,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Space):
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					if task, ok := m.board.ToggleDone(focusedPanel.ID); ok {
-						m.repository.SaveTask(task)
+						m.taskRepository.SaveTask(task)
 					}
 				}
 				return m, nil
@@ -344,7 +351,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					if task, ok := m.board.GetSelectedTask(focusedPanel.ID); ok {
 						m.board.DeleteTask(focusedPanel.ID)
-						m.repository.DeleteTask(task.ID)
+						m.taskRepository.DeleteTask(task.ID)
 					}
 				}
 			case key.Matches(msg, m.keys.Enter):
@@ -363,13 +370,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				today := time.Now().Weekday()
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					if task, ok := m.board.MoveTask(focusedPanel.ID, int(today)); ok {
-						m.repository.SaveTask(task)
+						m.taskRepository.SaveTask(task)
 					}
 				}
 			case key.Matches(msg, m.keys.MoveToInbox):
 				if focusedPanel, _ := m.root.Focused(); focusedPanel.ID != panelEdit {
 					if task, ok := m.board.MoveTask(focusedPanel.ID, board.Inbox); ok {
-						m.repository.SaveTask(task)
+						m.taskRepository.SaveTask(task)
 					}
 				}
 			case key.Matches(msg, m.keys.Contexts):
@@ -520,7 +527,7 @@ func (m model) contexts() []scheduled.Context {
 	return contexts
 }
 
-func createModel(repository repository) model {
+func createModel(taskRepository taskRepository, repository repository) model {
 	row1 := panel.New().WithId(20).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
 		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
@@ -557,7 +564,7 @@ func createModel(repository repository) model {
 		Append(leftPanel).
 		Append(rightPanel)
 
-	return newModel(rootPanel, repository)
+	return newModel(rootPanel, taskRepository, repository)
 }
 
 func main() {
@@ -573,7 +580,8 @@ func main() {
 	}
 
 	repo := file.NewRepository(*tasksFile)
-	m := createModel(repo)
+	taskRepo := file.NewTaskRepository(*tasksFile)
+	m := createModel(taskRepo, repo)
 
 	p := tea.NewProgram(m)
 
