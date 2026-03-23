@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// Plan holds all tasks for a week, grouped by day. Within each day
+// the slice order defines the display position.
 type Plan struct {
 	tasks map[int][]Task
 }
