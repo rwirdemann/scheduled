@@ -9,22 +9,40 @@ import (
 )
 
 type Plan struct {
-	tasks []Task
+	tasks  []Task
+	orders map[string]int
 }
 
-func NewPlan(tasks []Task) *Plan {
-	cloned := slices.Clone(tasks)
-	sortTasks(cloned)
-	normalizeAllPositions(cloned)
-	return &Plan{tasks: cloned}
+// NewPlan creates a Plan from tasks and their display orders. It normalizes
+// all positions on creation.
+func NewPlan(tasks []Task, orders []TaskOrder) *Plan {
+	p := &Plan{
+		tasks:  slices.Clone(tasks),
+		orders: make(map[string]int),
+	}
+	for _, o := range orders {
+		p.orders[o.TaskID] = o.Pos
+	}
+	p.normalizeAllPositions()
+	p.sort(p.tasks)
+	return p
 }
 
+// AllTasks returns all tasks sorted by day and position.
 func (p *Plan) AllTasks() []Task {
-	cloned := slices.Clone(p.tasks)
-	sortTasks(cloned)
-	return cloned
+	return slices.Clone(p.tasks)
 }
 
+// AllOrders returns the current task orders as a slice for persistence.
+func (p *Plan) AllOrders() []TaskOrder {
+	orders := make([]TaskOrder, 0, len(p.orders))
+	for id, pos := range p.orders {
+		orders = append(orders, TaskOrder{TaskID: id, Pos: pos})
+	}
+	return orders
+}
+
+// TasksForDay returns all tasks for the given day, sorted by position.
 func (p *Plan) TasksForDay(day int) []Task {
 	var result []Task
 	for _, task := range p.tasks {
@@ -32,10 +50,11 @@ func (p *Plan) TasksForDay(day int) []Task {
 			result = append(result, task)
 		}
 	}
-	sortTasks(result)
 	return result
 }
 
+// TasksForDayAndContext returns tasks for the given day filtered by context,
+// sorted by position.
 func (p *Plan) TasksForDayAndContext(day int, contextID int) []Task {
 	if contextID == ContextNone.ID {
 		return p.TasksForDay(day)
@@ -47,10 +66,10 @@ func (p *Plan) TasksForDayAndContext(day int, contextID int) []Task {
 			result = append(result, task)
 		}
 	}
-	sortTasks(result)
 	return result
 }
 
+// CreateTask creates a new task and appends it to the given day.
 func (p *Plan) CreateTask(name string, contextID int, description string, day int) Task {
 	task := Task{
 		ID:      uuid.NewString(),
@@ -59,13 +78,16 @@ func (p *Plan) CreateTask(name string, contextID int, description string, day in
 		Day:     day,
 		Done:    false,
 		Context: contextID,
-		Pos:     len(p.TasksForDay(day)),
 	}
+	p.orders[task.ID] = len(p.TasksForDay(day))
 	p.tasks = append(p.tasks, task)
-	normalizeDayPositions(p.tasks, day)
+	p.normalizeDayPositions(day)
+	p.sort(p.tasks)
 	return task
 }
 
+// UpdateTask updates the name, context, and description of the task with the
+// given id.
 func (p *Plan) UpdateTask(id, name string, contextID int, description string) error {
 	index := p.indexByID(id)
 	if index < 0 {
@@ -78,6 +100,7 @@ func (p *Plan) UpdateTask(id, name string, contextID int, description string) er
 	return nil
 }
 
+// ToggleDone toggles the done state of the task with the given id.
 func (p *Plan) ToggleDone(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
@@ -88,6 +111,7 @@ func (p *Plan) ToggleDone(id string) error {
 	return nil
 }
 
+// DeleteDoneTask removes a completed task from the plan.
 func (p *Plan) DeleteDoneTask(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
@@ -99,11 +123,14 @@ func (p *Plan) DeleteDoneTask(id string) error {
 	}
 
 	day := p.tasks[index].Day
+	delete(p.orders, id)
 	p.tasks = append(p.tasks[:index], p.tasks[index+1:]...)
-	normalizeDayPositions(p.tasks, day)
+	p.normalizeDayPositions(day)
+	p.sort(p.tasks)
 	return nil
 }
 
+// MoveTaskToDay moves the task with the given id to toDay.
 func (p *Plan) MoveTaskToDay(id string, toDay int) error {
 	index := p.indexByID(id)
 	if index < 0 {
@@ -116,13 +143,15 @@ func (p *Plan) MoveTaskToDay(id string, toDay int) error {
 	}
 
 	p.tasks[index].Day = toDay
-	p.tasks[index].Pos = len(p.TasksForDay(toDay))
+	p.orders[id] = len(p.TasksForDay(toDay))
 
-	normalizeDayPositions(p.tasks, fromDay)
-	normalizeDayPositions(p.tasks, toDay)
+	p.normalizeDayPositions(fromDay)
+	p.normalizeDayPositions(toDay)
+	p.sort(p.tasks)
 	return nil
 }
 
+// MoveTaskUp moves the task with the given id one position up within its day.
 func (p *Plan) MoveTaskUp(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
@@ -137,11 +166,15 @@ func (p *Plan) MoveTaskUp(id string) error {
 	}
 
 	prevIndex := dayIndices[posInDay-1]
-	p.tasks[index].Pos, p.tasks[prevIndex].Pos = p.tasks[prevIndex].Pos, p.tasks[index].Pos
-	normalizeDayPositions(p.tasks, day)
+	prevID := p.tasks[prevIndex].ID
+	p.orders[id], p.orders[prevID] = p.orders[prevID], p.orders[id]
+	p.normalizeDayPositions(day)
+	p.sort(p.tasks)
 	return nil
 }
 
+// MoveTaskDown moves the task with the given id one position down within its
+// day.
 func (p *Plan) MoveTaskDown(id string) error {
 	index := p.indexByID(id)
 	if index < 0 {
@@ -156,11 +189,14 @@ func (p *Plan) MoveTaskDown(id string) error {
 	}
 
 	nextIndex := dayIndices[posInDay+1]
-	p.tasks[index].Pos, p.tasks[nextIndex].Pos = p.tasks[nextIndex].Pos, p.tasks[index].Pos
-	normalizeDayPositions(p.tasks, day)
+	nextID := p.tasks[nextIndex].ID
+	p.orders[id], p.orders[nextID] = p.orders[nextID], p.orders[id]
+	p.normalizeDayPositions(day)
+	p.sort(p.tasks)
 	return nil
 }
 
+// IsContextUsed reports whether any task uses the given context.
 func (p *Plan) IsContextUsed(contextID int) bool {
 	for _, task := range p.tasks {
 		if task.Context == contextID {
@@ -179,26 +215,6 @@ func (p *Plan) indexByID(id string) int {
 	return -1
 }
 
-func (p *Plan) indicesForDay(day int) []int {
-	var indices []int
-	for i := range p.tasks {
-		if p.tasks[i].Day == day {
-			indices = append(indices, i)
-		}
-	}
-
-	sort.Slice(indices, func(i, j int) bool {
-		left := p.tasks[indices[i]]
-		right := p.tasks[indices[j]]
-		if left.Pos == right.Pos {
-			return left.ID < right.ID
-		}
-		return left.Pos < right.Pos
-	})
-
-	return indices
-}
-
 func indexOfIndex(indices []int, wanted int) int {
 	for i, index := range indices {
 		if index == wanted {
@@ -208,47 +224,61 @@ func indexOfIndex(indices []int, wanted int) int {
 	return -1
 }
 
-func sortTasks(tasks []Task) {
+// sort sorts tasks by day, then by position within the day, then
+// by ID as a tiebreaker.
+func (p *Plan) sort(tasks []Task) {
 	sort.Slice(tasks, func(i, j int) bool {
 		if tasks[i].Day != tasks[j].Day {
 			return tasks[i].Day < tasks[j].Day
 		}
-		if tasks[i].Pos != tasks[j].Pos {
-			return tasks[i].Pos < tasks[j].Pos
+		if p.orders[tasks[i].ID] != p.orders[tasks[j].ID] {
+			return p.orders[tasks[i].ID] < p.orders[tasks[j].ID]
 		}
 		return tasks[i].ID < tasks[j].ID
 	})
 }
 
-func normalizeAllPositions(tasks []Task) {
+// normalizeAllPositions normalizes positions for every day that has tasks.
+// The map collects unique day values as a set; struct{} costs zero bytes.
+func (p *Plan) normalizeAllPositions() {
 	days := map[int]struct{}{}
-	for _, task := range tasks {
+	for _, task := range p.tasks {
 		days[task.Day] = struct{}{}
 	}
-
 	for day := range days {
-		normalizeDayPositions(tasks, day)
+		p.normalizeDayPositions(day)
 	}
 }
 
-func normalizeDayPositions(tasks []Task, day int) {
-	var dayIndices []int
-	for i := range tasks {
-		if tasks[i].Day == day {
-			dayIndices = append(dayIndices, i)
+// normalizeDayPositions reassigns positions 0, 1, 2, … to all tasks of day
+// in their current order, closing any gaps left by moves or deletions.
+func (p *Plan) normalizeDayPositions(day int) {
+	dayIndices := p.indicesForDay(day)
+	for pos, index := range dayIndices {
+		p.orders[p.tasks[index].ID] = pos
+	}
+}
+
+// indicesForDay returns the indices of all tasks belonging to day, sorted by
+// position and ID as a tiebreaker.
+func (p *Plan) indicesForDay(day int) []int {
+	var indices []int
+	for i := range p.tasks {
+		if p.tasks[i].Day == day {
+			indices = append(indices, i)
 		}
 	}
 
-	sort.Slice(dayIndices, func(i, j int) bool {
-		left := tasks[dayIndices[i]]
-		right := tasks[dayIndices[j]]
-		if left.Pos == right.Pos {
-			return left.ID < right.ID
+	sort.Slice(indices, func(i, j int) bool {
+		leftID := p.tasks[indices[i]].ID
+		rightID := p.tasks[indices[j]].ID
+		leftPos := p.orders[leftID]
+		rightPos := p.orders[rightID]
+		if leftPos == rightPos {
+			return leftID < rightID
 		}
-		return left.Pos < right.Pos
+		return leftPos < rightPos
 	})
 
-	for pos, index := range dayIndices {
-		tasks[index].Pos = pos
-	}
+	return indices
 }

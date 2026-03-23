@@ -7,6 +7,5 @@ type Task struct {
 	Desc    string `json:"description"`
 	Day     int    `json:"day"`
 	Done    bool   `json:"done"`
-	Pos     int    `json:"pos"`
 	Context int    `json:"context"`
 }
