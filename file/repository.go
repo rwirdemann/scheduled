@@ -72,7 +72,7 @@ func (t TaskRepository) LoadTasks() []scheduled.Task {
 }
 
 // SaveTask upserts a single task in the repository file.
-func (t TaskRepository) SaveTask(task scheduled.Task) {
+func (t TaskRepository) Upsert(task scheduled.Task) {
 	tasks := t.LoadTasks()
 	for i, existing := range tasks {
 		if existing.ID == task.ID {
