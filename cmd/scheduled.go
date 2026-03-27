@@ -332,7 +332,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Preselect the currently selected context
 				selectedContext := m.board.GetSelectedContext()
 				prefilledTask := &scheduled.Task{Context: selectedContext.ID}
-				m.taskForm = scheduled.CreateTaskForm(prefilledTask, scheduled.LayoutVertical, m.contexts())
+				m.taskForm = scheduled.CreateTaskForm(prefilledTask, scheduled.LayoutVertical, m.contexts(), m.showHelp)
 				m.mode = modeNew
 				return m, m.taskForm.Init()
 			case key.Matches(msg, m.keys.Esc):
@@ -357,7 +357,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Enter):
 				focusedPanel, _ := m.root.Focused()
 				if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-					m.taskForm = scheduled.CreateTaskForm(&t, scheduled.LayoutVertical, m.contexts())
+					m.taskForm = scheduled.CreateTaskForm(&t, scheduled.LayoutVertical, m.contexts(), m.showHelp)
 					m.mode = modeEdit
 					return m, m.taskForm.Init()
 				}

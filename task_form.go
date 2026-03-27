@@ -15,8 +15,15 @@ const (
 	LayoutVertical
 )
 
-// CreateTaskForm creates a form to create new or edit existings tasks.
-func CreateTaskForm(task *Task, layout Layout, contexts []Context) *huh.Form {
+// CreateTaskForm creates a form to create new or edit existing tasks. When
+// compact is true, the context select is limited to one visible entry to
+// reduce the form height.
+func CreateTaskForm(
+	task *Task,
+	layout Layout,
+	contexts []Context,
+	compact bool,
+) *huh.Form {
 	titleInput := huh.NewText().
 		Title("Title").
 		Key("title").
@@ -43,6 +50,9 @@ func CreateTaskForm(task *Task, layout Layout, contexts []Context) *huh.Form {
 		Title("Context").
 		Key("context").
 		Options(options...)
+	if compact {
+		contextSelect = contextSelect.Height(1)
+	}
 	if task != nil {
 		titleInput = titleInput.Value(&task.Name)
 		contextSelect = contextSelect.Value(&task.Context)
