@@ -528,38 +528,77 @@ func (m model) contexts() []scheduled.Context {
 }
 
 func createModel(taskRepository taskRepository, repository repository) model {
-	row1 := panel.New().WithId(20).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
+	// The root panel contains a left and a right panel, horizontally arranged.
+	// The right panel contains the main elemenets, i.e. the day lists, the help
+	// and the status bar. The left panel is for contexts.
+	rightPanel := panel.New().
+		WithRatio(84).
+		WithLayout(panel.LayoutDirectionVertical)
+	row1 := panel.New().
+		WithId(20).
+		WithRatio(41).
+		WithLayout(panel.LayoutDirectionHorizontal)
 	for i := range 4 {
-		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
+		p := panel.New().
+			WithId(i).
+			WithRatio(25).
+			WithBorder().
+			WithContent(renderPanel)
 		if i == 0 {
 			p = p.Focus()
 		}
 		row1 = row1.Append(p)
 	}
-
-	row2 := panel.New().WithId(30).WithRatio(41).WithLayout(panel.LayoutDirectionHorizontal)
+	row2 := panel.New().
+		WithId(30).
+		WithRatio(41).
+		WithLayout(panel.LayoutDirectionHorizontal)
 	for i := 4; i < 8; i++ {
-		p := panel.New().WithId(i).WithRatio(25).WithBorder().WithContent(renderPanel)
+		p := panel.New().
+			WithId(i).
+			WithRatio(25).
+			WithBorder().
+			WithContent(renderPanel)
 		row2 = row2.Append(p)
 	}
-	statusPanel := panel.New().WithId(statusPanel).WithRatio(18).WithContent(renderStatus).WithBorder().WithVisible(false).WithMaxHeight(3)
-	editPanel := panel.New().WithId(panelEdit).WithRatio(18).WithContent(renderPanel).WithBorder().WithVisible(false).WithMaxHeight(6)
-	helpPanel := panel.New().WithId(panelHelp).WithRatio(18).WithContent(renderHelp).WithBorder().WithVisible(true).WithMaxHeight(6)
+	statusPanel := panel.New().
+		WithId(statusPanel).
+		WithRatio(18).
+		WithContent(renderStatus).
+		WithBorder().WithVisible(false).
+		WithMaxHeight(3)
+	helpPanel := panel.New().
+		WithId(panelHelp).
+		WithRatio(18).
+		WithContent(renderHelp).
+		WithBorder().
+		WithVisible(true).
+		WithMaxHeight(6)
+	rightPanel.Append(statusPanel).Append(row1).Append(row2).Append(helpPanel)
 
-	rightPanel := panel.New().WithRatio(84).WithLayout(panel.LayoutDirectionVertical).
-		Append(statusPanel).
-		Append(row1).
-		Append(row2).
-		Append(editPanel).
-		Append(helpPanel)
-
-	leftPanel := panel.New().WithId(leftPanel).WithRatio(16).WithVisible(false).WithLayout(panel.LayoutDirectionVertical)
-	contextPanel := panel.New().WithId(contextPanel).WithRatio(82).WithBorder().WithContent(renderContextPanel)
-	contextEditPanel := panel.New().WithId(contextEditPanel).WithRatio(18).WithBorder().WithVisible(false).WithContent(renderContextEditPanel).WithMaxHeight(6)
+	// the left panel
+	leftPanel := panel.New().
+		WithId(leftPanel).
+		WithRatio(16).
+		WithVisible(false).
+		WithLayout(panel.LayoutDirectionVertical)
+	contextPanel := panel.New().
+		WithId(contextPanel).
+		WithRatio(82).
+		WithBorder().
+		WithContent(renderContextPanel)
+	contextEditPanel := panel.New().
+		WithId(contextEditPanel).
+		WithRatio(18).
+		WithBorder().
+		WithVisible(false).
+		WithContent(renderContextEditPanel).
+		WithMaxHeight(6)
 	leftPanel = leftPanel.
 		Append(contextPanel).
 		Append(contextEditPanel)
 
+	// finally, the root panel
 	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionHorizontal).
 		Append(leftPanel).
 		Append(rightPanel)
