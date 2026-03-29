@@ -574,7 +574,11 @@ func createModel(taskRepository taskRepository, repository repository) model {
 		WithBorder().
 		WithVisible(true).
 		WithMaxHeight(6)
-	rightPanel.Append(statusPanel).Append(row1).Append(row2).Append(helpPanel)
+	rightPanel = rightPanel.
+		Append(statusPanel).
+		Append(row1).
+		Append(row2).
+		Append(helpPanel)
 
 	// the left panel
 	leftPanel := panel.New().
