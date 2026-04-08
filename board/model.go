@@ -72,6 +72,16 @@ func NewModel(plan *scheduled.Plan) *Model {
 	return m
 }
 
+// SetTheme updates all list delegates and done-task style for dark or
+// light backgrounds.
+func (m *Model) SetTheme(dark bool) {
+	setDoneStyle(dark)
+	d := newDelegate(dark)
+	for _, l := range m.lists {
+		l.SetDelegate(d)
+	}
+}
+
 // Week returns the current week number stored in the Model.
 func (m *Model) Week() int {
 	return m.week

@@ -24,6 +24,7 @@ type KeyMap struct {
 	Contexts     key.Binding
 	CopyTasks    key.Binding
 	ScheduleTask key.Binding
+	ToggleTheme  key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
@@ -67,23 +68,23 @@ var Keys = KeyMap{
 	),
 	Space: key.NewBinding(
 		key.WithKeys("space"),
-		key.WithHelp("space", "toggle task done"),
+		key.WithHelp("space", "toggle done"),
 	),
 	ShiftRight: key.NewBinding(
 		key.WithKeys("shift+right"),
-		key.WithHelp("shift+→", "move task right"),
+		key.WithHelp("shift+→", "move right"),
 	),
 	ShiftLeft: key.NewBinding(
 		key.WithKeys("shift+left"),
-		key.WithHelp("shift+←", "move task left"),
+		key.WithHelp("shift+←", "move left"),
 	),
 	ShiftUp: key.NewBinding(
 		key.WithKeys("shift+up"),
-		key.WithHelp("shift+↑", "move task up"),
+		key.WithHelp("shift+↑", "move up"),
 	),
 	ShiftDown: key.NewBinding(
 		key.WithKeys("shift+down"),
-		key.WithHelp("shift+↓", "move task down"),
+		key.WithHelp("shift+↓", "move down"),
 	),
 	Left: key.NewBinding(
 		key.WithKeys("left"),
@@ -125,6 +126,10 @@ var Keys = KeyMap{
 		key.WithKeys("m"),
 		key.WithHelp("m", "move task to day"),
 	),
+	ToggleTheme: key.NewBinding(
+		key.WithKeys("d"),
+		key.WithHelp("d", "toggle theme"),
+	),
 }
 
 type ContextViewKeyMap struct {
@@ -147,9 +152,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.New, k.Enter, k.Space, k.Back},
 		{k.NextDay, k.PrevDay, k.Right, k.Left},
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
-		{k.MoveToToday, k.MoveToInbox, k.ScheduleTask},
+		{k.MoveToToday, k.MoveToInbox, k.ScheduleTask, k.CopyTasks},
 		{k.Num, k.Esc},
-		{k.Help, k.Contexts, k.CopyTasks, k.Quit},
+		{k.Help, k.Contexts, k.ToggleTheme, k.Quit},
 	}
 }
 

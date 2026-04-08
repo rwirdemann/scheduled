@@ -96,15 +96,21 @@ type model struct {
 	statusMessage string
 	statusTimeout time.Time
 	plan          *scheduled.Plan
+
+	isDark bool
+	theme  scheduled.Theme
 }
 
 func newModel(
 	root panel.Model, taskRepository taskRepository, repository repository,
 ) model {
+	isDark := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+	theme := scheduled.NewTheme(isDark)
+
 	h := help.New()
-	h.Styles.FullKey = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	h.Styles.FullDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-	h.Styles.FullSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	h.Styles.FullKey = theme.HelpKey
+	h.Styles.FullDesc = theme.HelpDesc
+	h.Styles.FullSeparator = theme.HelpSep
 
 	contextListDelegate := list.NewDefaultDelegate()
 	contextListDelegate.ShowDescription = false
@@ -134,9 +140,12 @@ func newModel(
 		contextEdit:     textinput.New(),
 		plan:            weekPlan,
 		board:           board.NewModel(weekPlan),
+		isDark:          isDark,
+		theme:           theme,
 	}
 	m.contextEdit.Placeholder = "Context"
 	m.contextEdit.SetWidth(20)
+	m.board.SetTheme(isDark)
 	return m
 }
 
@@ -393,6 +402,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m.showStatusMessage(fmt.Sprintf("%d tasks copied to clipboard", len(tasks)))
 				}
 				return m, nil
+			case key.Matches(msg, m.keys.ToggleTheme):
+				m.isDark = !m.isDark
+				m.theme = scheduled.NewTheme(m.isDark)
+				m.applyTheme()
+				return m, nil
 			}
 		}
 	}
@@ -511,11 +525,15 @@ func renderContextEditPanel(m tea.Model, _ int, _, _ int) string {
 
 func renderStatus(m tea.Model, _ int, _, _ int) string {
 	model := m.(model)
-	statusStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("42")).
-		Bold(true).
-		Padding(0, 1)
-	return statusStyle.Render(model.statusMessage)
+	return model.theme.Status.Render(model.statusMessage)
+}
+
+// applyTheme updates help styles and board theme to match m.theme.
+func (m *model) applyTheme() {
+	m.help.Styles.FullKey = m.theme.HelpKey
+	m.help.Styles.FullDesc = m.theme.HelpDesc
+	m.help.Styles.FullSeparator = m.theme.HelpSep
+	m.board.SetTheme(m.isDark)
 }
 
 func (m model) contexts() []scheduled.Context {
