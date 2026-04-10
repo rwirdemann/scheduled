@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"image/color"
-
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
@@ -495,7 +493,8 @@ func (m model) View() tea.View {
 
 	bg := m.root.View(m)
 	if m.showHelp {
-		box := buildHelpOverlay(m)
+		box := scheduled.NewHelpOverlay(m.theme, m.help.Styles).
+			Render(m.keys.FullHelp())
 		boxW := lipgloss.Width(box)
 		boxH := lipgloss.Height(box)
 		x := (m.termWidth - boxW) / 2
@@ -514,77 +513,12 @@ func (m model) View() tea.View {
 	return v
 }
 
-// buildHelpOverlay renders the keybindings in three columns inside a
-// titled border box.
-func buildHelpOverlay(m model) string {
-	box := m.theme.OverlayBox.Render(renderHelpColumns(m))
-	return insertBorderTitle(
-		box, " Keybindings ", m.theme.OverlayBorderColor,
-	)
-}
-
-// renderHelpColumns arranges all keybindings into three side-by-side
-// columns, two groups each.
-func renderHelpColumns(m model) string {
-	groups := m.keys.FullHelp()
-	colStyle := lipgloss.NewStyle().PaddingRight(6)
-	col1 := colStyle.Render(renderHelpGroups(groups[0:2], m))
-	col2 := colStyle.Render(renderHelpGroups(groups[2:4], m))
-	col3 := renderHelpGroups(groups[4:6], m)
-	return lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
-}
-
-// renderHelpGroups renders a slice of binding groups as "key  desc" lines,
-// with a blank line between groups.
-func renderHelpGroups(groups [][]key.Binding, m model) string {
-	keyStyle := m.help.Styles.FullKey
-	descStyle := m.help.Styles.FullDesc
-	var parts []string
-	for _, group := range groups {
-		var lines []string
-		for _, b := range group {
-			h := b.Help()
-			k := keyStyle.Width(14).Render(h.Key)
-			d := descStyle.Render(h.Desc)
-			lines = append(lines, k+d)
-		}
-		parts = append(parts, strings.Join(lines, "\n"))
-	}
-	return strings.Join(parts, "\n\n")
-}
-
-// insertBorderTitle replaces the top border line of a lipgloss-rendered
-// box with a version that includes a centered title.
-func insertBorderTitle(
-	box, title string, borderColor color.Color,
-) string {
-	lines := strings.Split(box, "\n")
-	if len(lines) == 0 {
-		return box
-	}
-	w := lipgloss.Width(lines[0])
-	titleW := lipgloss.Width(title)
-	if titleW >= w-2 {
-		return box
-	}
-	leftPad := (w - titleW) / 2
-	rightPad := w - titleW - leftPad
-	newTop := "┌" +
-		strings.Repeat("─", leftPad-1) +
-		title +
-		strings.Repeat("─", rightPad-1) +
-		"┐"
-	lines[0] = lipgloss.NewStyle().
-		Foreground(borderColor).
-		Render(newTop)
-	return strings.Join(lines, "\n")
-}
-
 func renderPanel(m tea.Model, panelID int, w, h int) string {
 	model := m.(model)
 
 	// Render task form in currently active list panel
-	if (model.mode == modeEdit || model.mode == modeNew) && panelID == model.board.LastFocus {
+	if (model.mode == modeEdit || model.mode == modeNew) &&
+		panelID == model.board.LastFocus {
 		model.taskForm.WithHeight(h).WithWidth(w)
 		return model.taskForm.View()
 	}
@@ -658,8 +592,8 @@ func (m model) contexts() []scheduled.Context {
 
 func createModel(taskRepository taskRepository, repository repository) model {
 	// The root panel contains a left and a right panel, horizontally arranged.
-	// The right panel contains the main elemenets, i.e. the day lists, the help
-	// and the status bar. The left panel is for contexts.
+	// The right panel contains the main elemenets, i.e. the day lists, the
+	// help and the status bar. The left panel is for contexts.
 	rightPanel := panel.New().
 		WithRatio(84).
 		WithLayout(panel.LayoutDirectionVertical)
