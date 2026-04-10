@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"image/color"
+
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
@@ -31,11 +33,11 @@ var version = "dev"
 
 const (
 	panelEdit        = 40
-	panelHelp        = 50
 	contextPanel     = 60
 	leftPanel        = 70
 	contextEditPanel = 80
 	statusPanel      = 90
+	footerPanel      = 100
 )
 
 type mode int
@@ -134,7 +136,7 @@ func newModel(
 		keys:            scheduled.Keys,
 		contextViewKeys: scheduled.ContextViewKeys,
 		help:            h,
-		showHelp:        true,
+		showHelp:        false,
 		mode:            modeNormal,
 		contextList:     contextList,
 		contextEdit:     textinput.New(),
@@ -217,17 +219,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.taskRepository.Upsert(task)
 				}
 				m.root = m.root.Hide(panelEdit)
-				if m.showHelp {
-					m.root = m.root.Show(panelHelp)
-				}
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				m.mode = modeNormal
 			}
 			if f.State == huh.StateAborted {
 				m.root = m.root.Hide(panelEdit)
-				if m.showHelp {
-					m.root = m.root.Show(panelHelp)
-				}
 				m.root = m.root.SetFocus(m.board.LastFocus)
 				m.mode = modeNormal
 			}
@@ -305,13 +301,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			case key.Matches(msg, m.keys.Help):
-				m.root = m.root.Hide(panelEdit)
 				m.showHelp = !m.showHelp
-				if m.showHelp {
-					m.root = m.root.Show(panelHelp)
-				} else {
-					m.root = m.root.Hide(panelHelp)
-				}
 				return m, nil
 			case key.Matches(msg, m.keys.Right):
 				m.board.IncWeek()
@@ -341,10 +331,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Preselect the currently selected context
 				selectedContext := m.board.GetSelectedContext()
 				prefilledTask := &scheduled.Task{Context: selectedContext.ID}
-				m.taskForm = scheduled.CreateTaskForm(prefilledTask, scheduled.LayoutVertical, m.contexts(), m.showHelp)
+				m.taskForm = scheduled.CreateTaskForm(
+					prefilledTask,
+					scheduled.LayoutVertical,
+					m.contexts(),
+				)
 				m.mode = modeNew
 				return m, m.taskForm.Init()
 			case key.Matches(msg, m.keys.Esc):
+				if m.showHelp {
+					m.showHelp = false
+					return m, nil
+				}
 				m.root = m.root.Hide(panelEdit)
 				m.root = m.root.SetFocus(board.Inbox)
 				m.board.DeselectAndRestoreIndex(board.Inbox)
@@ -366,7 +364,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Enter):
 				focusedPanel, _ := m.root.Focused()
 				if t, exists := m.board.GetSelectedTask(focusedPanel.ID); exists {
-					m.taskForm = scheduled.CreateTaskForm(&t, scheduled.LayoutVertical, m.contexts(), m.showHelp)
+					m.taskForm = scheduled.CreateTaskForm(
+						&t,
+						scheduled.LayoutVertical,
+						m.contexts(),
+					)
 					m.mode = modeEdit
 					return m, m.taskForm.Init()
 				}
@@ -471,20 +473,111 @@ func (m model) addContext(name string) (model, error) {
 	return m, nil
 }
 
+// View renders the current UI frame. It returns an error screen when the
+// terminal is too small, a composited help overlay when showHelp is true,
+// or the plain panel layout otherwise. All views run in the alternate screen
+// buffer to preserve the shell's scroll history.
 func (m model) View() tea.View {
 	const minWidth = 136
 	const minHeight = 40
 
 	if m.termWidth < minWidth || m.termHeight < minHeight {
-		v := tea.NewView(fmt.Sprintf("\n\n  Terminal too small!\n\n  Current size: %dx%d\n  Minimum size: %dx%d\n\n  Please resize your terminal.\n",
-			m.termWidth, m.termHeight, minWidth, minHeight))
+		v := tea.NewView(fmt.Sprintf(
+			"\n\n  Terminal too small!\n\n"+
+				"  Current size: %dx%d\n"+
+				"  Minimum size: %dx%d\n\n"+
+				"  Please resize your terminal.\n",
+			m.termWidth, m.termHeight, minWidth, minHeight,
+		))
 		v.AltScreen = true
 		return v
 	}
 
-	v := tea.NewView(m.root.View(m))
+	bg := m.root.View(m)
+	if m.showHelp {
+		box := buildHelpOverlay(m)
+		boxW := lipgloss.Width(box)
+		boxH := lipgloss.Height(box)
+		x := (m.termWidth - boxW) / 2
+		y := (m.termHeight - boxH) / 2
+		c := lipgloss.NewCompositor(
+			lipgloss.NewLayer(bg),
+			lipgloss.NewLayer(box).X(x).Y(y).Z(1),
+		)
+		v := tea.NewView(c.Render())
+		v.AltScreen = true
+		return v
+	}
+
+	v := tea.NewView(bg)
 	v.AltScreen = true
 	return v
+}
+
+// buildHelpOverlay renders the keybindings in three columns inside a
+// titled border box.
+func buildHelpOverlay(m model) string {
+	box := m.theme.OverlayBox.Render(renderHelpColumns(m))
+	return insertBorderTitle(
+		box, " Keybindings ", m.theme.OverlayBorderColor,
+	)
+}
+
+// renderHelpColumns arranges all keybindings into three side-by-side
+// columns, two groups each.
+func renderHelpColumns(m model) string {
+	groups := m.keys.FullHelp()
+	colStyle := lipgloss.NewStyle().PaddingRight(6)
+	col1 := colStyle.Render(renderHelpGroups(groups[0:2], m))
+	col2 := colStyle.Render(renderHelpGroups(groups[2:4], m))
+	col3 := renderHelpGroups(groups[4:6], m)
+	return lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
+}
+
+// renderHelpGroups renders a slice of binding groups as "key  desc" lines,
+// with a blank line between groups.
+func renderHelpGroups(groups [][]key.Binding, m model) string {
+	keyStyle := m.help.Styles.FullKey
+	descStyle := m.help.Styles.FullDesc
+	var parts []string
+	for _, group := range groups {
+		var lines []string
+		for _, b := range group {
+			h := b.Help()
+			k := keyStyle.Width(14).Render(h.Key)
+			d := descStyle.Render(h.Desc)
+			lines = append(lines, k+d)
+		}
+		parts = append(parts, strings.Join(lines, "\n"))
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// insertBorderTitle replaces the top border line of a lipgloss-rendered
+// box with a version that includes a centered title.
+func insertBorderTitle(
+	box, title string, borderColor color.Color,
+) string {
+	lines := strings.Split(box, "\n")
+	if len(lines) == 0 {
+		return box
+	}
+	w := lipgloss.Width(lines[0])
+	titleW := lipgloss.Width(title)
+	if titleW >= w-2 {
+		return box
+	}
+	leftPad := (w - titleW) / 2
+	rightPad := w - titleW - leftPad
+	newTop := "┌" +
+		strings.Repeat("─", leftPad-1) +
+		title +
+		strings.Repeat("─", rightPad-1) +
+		"┐"
+	lines[0] = lipgloss.NewStyle().
+		Foreground(borderColor).
+		Render(newTop)
+	return strings.Join(lines, "\n")
 }
 
 func renderPanel(m tea.Model, panelID int, w, h int) string {
@@ -503,14 +596,6 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 	return model.board.Render(panelID, w, h)
 }
 
-func renderHelp(m tea.Model, _ int, _, _ int) string {
-	model := m.(model)
-	if model.mode == modeContexts {
-		return model.help.ShortHelpView(model.keys.ShortHelp())
-	}
-	return model.help.FullHelpView(model.keys.FullHelp())
-}
-
 func renderContextPanel(m tea.Model, _ int, w, h int) string {
 	model := m.(model)
 	model.contextList.SetSize(w, h-4)
@@ -526,6 +611,32 @@ func renderContextEditPanel(m tea.Model, _ int, _, _ int) string {
 func renderStatus(m tea.Model, _ int, _, _ int) string {
 	model := m.(model)
 	return model.theme.Status.Render(model.statusMessage)
+}
+
+func renderFooter(m tea.Model, _ int, w, _ int) string {
+	model := m.(model)
+	k := model.help.Styles.FullKey
+	d := model.help.Styles.FullDesc
+	sep := model.help.Styles.FullSeparator
+	entries := []key.Binding{
+		model.keys.New,
+		model.keys.Help,
+		model.keys.Quit,
+	}
+	var parts []string
+	for _, b := range entries {
+		h := b.Help()
+		parts = append(parts, k.Render(h.Key)+" "+d.Render(h.Desc))
+	}
+	left := "  " + strings.Join(parts, "  "+sep.Render("·")+"  ")
+	ver := "Scheduled - " + d.Render(version) + " "
+	verWidth := lipgloss.Width(ver)
+	leftWidth := lipgloss.Width(left)
+	padding := w - leftWidth - verWidth
+	if padding < 1 {
+		padding = 1
+	}
+	return left + strings.Repeat(" ", padding) + ver
 }
 
 // applyTheme updates help styles and board theme to match m.theme.
@@ -585,18 +696,16 @@ func createModel(taskRepository taskRepository, repository repository) model {
 		WithContent(renderStatus).
 		WithBorder().WithVisible(false).
 		WithMaxHeight(3)
-	helpPanel := panel.New().
-		WithId(panelHelp).
+	footerPanel := panel.New().
+		WithId(footerPanel).
 		WithRatio(18).
-		WithContent(renderHelp).
-		WithBorder().
-		WithVisible(true).
-		WithMaxHeight(6)
+		WithContent(renderFooter).
+		WithMaxHeight(1)
 	rightPanel = rightPanel.
 		Append(statusPanel).
 		Append(row1).
 		Append(row2).
-		Append(helpPanel)
+		Append(footerPanel)
 
 	// the left panel
 	leftPanel := panel.New().

@@ -68,23 +68,23 @@ var Keys = KeyMap{
 	),
 	Space: key.NewBinding(
 		key.WithKeys("space"),
-		key.WithHelp("space", "toggle done"),
+		key.WithHelp("space", "toggle task done"),
 	),
 	ShiftRight: key.NewBinding(
 		key.WithKeys("shift+right"),
-		key.WithHelp("shift+→", "move right"),
+		key.WithHelp("shift+→", "move task right"),
 	),
 	ShiftLeft: key.NewBinding(
 		key.WithKeys("shift+left"),
-		key.WithHelp("shift+←", "move left"),
+		key.WithHelp("shift+←", "move task left"),
 	),
 	ShiftUp: key.NewBinding(
 		key.WithKeys("shift+up"),
-		key.WithHelp("shift+↑", "move up"),
+		key.WithHelp("shift+↑", "move task up"),
 	),
 	ShiftDown: key.NewBinding(
 		key.WithKeys("shift+down"),
-		key.WithHelp("shift+↓", "move down"),
+		key.WithHelp("shift+↓", "move task down"),
 	),
 	Left: key.NewBinding(
 		key.WithKeys("left"),
@@ -96,7 +96,7 @@ var Keys = KeyMap{
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
-		key.WithHelp("?", "toggle help"),
+		key.WithHelp("?", "keybindings"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q"),
@@ -153,8 +153,8 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.NextDay, k.PrevDay, k.Right, k.Left},
 		{k.ShiftRight, k.ShiftLeft, k.ShiftDown, k.ShiftUp},
 		{k.MoveToToday, k.MoveToInbox, k.ScheduleTask, k.CopyTasks},
-		{k.Num, k.Esc},
-		{k.Help, k.Contexts, k.ToggleTheme, k.Quit},
+		{k.Num, k.Esc, k.Contexts, k.ToggleTheme},
+		{k.Help, k.Quit},
 	}
 }
 

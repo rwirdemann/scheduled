@@ -22,7 +22,6 @@ func CreateTaskForm(
 	task *Task,
 	layout Layout,
 	contexts []Context,
-	compact bool,
 ) *huh.Form {
 	titleInput := huh.NewText().
 		Title("Title").
@@ -50,9 +49,6 @@ func CreateTaskForm(
 		Title("Context").
 		Key("context").
 		Options(options...)
-	if compact {
-		contextSelect = contextSelect.Height(1)
-	}
 	if task != nil {
 		titleInput = titleInput.Value(&task.Name)
 		contextSelect = contextSelect.Value(&task.Context)
