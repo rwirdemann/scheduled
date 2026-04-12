@@ -563,14 +563,19 @@ func renderFooter(m tea.Model, _ int, w, _ int) string {
 		parts = append(parts, k.Render(h.Key)+" "+d.Render(h.Desc))
 	}
 	left := "  " + strings.Join(parts, "  "+sep.Render("·")+"  ")
-	ver := "Scheduled - " + d.Render(version) + " "
-	verWidth := lipgloss.Width(ver)
+	ctx := model.board.GetSelectedContext()
+	right := ""
+	if ctx.ID != scheduled.ContextNone.ID {
+		right = d.Render(ctx.Name) + "  " + sep.Render("·") + "  "
+	}
+	right += "Scheduled - " + d.Render(version) + " "
+	rightWidth := lipgloss.Width(right)
 	leftWidth := lipgloss.Width(left)
-	padding := w - leftWidth - verWidth
+	padding := w - leftWidth - rightWidth
 	if padding < 1 {
 		padding = 1
 	}
-	return left + strings.Repeat(" ", padding) + ver
+	return left + strings.Repeat(" ", padding) + right
 }
 
 // applyTheme updates help styles and board theme to match m.theme.
