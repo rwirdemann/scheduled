@@ -5,9 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -52,41 +50,6 @@ const (
 
 type clearStatusMsg struct{}
 
-type systemThemeMsg bool
-
-// pollSystemTheme returns a command that waits 5 seconds, then queries
-// the OS system appearance and returns a systemThemeMsg.
-func pollSystemTheme() tea.Cmd {
-	return tea.Tick(5*time.Second, func(_ time.Time) tea.Msg {
-		return systemThemeMsg(isDarkMode())
-	})
-}
-
-// isDarkMode reports whether the OS is currently in dark mode.
-func isDarkMode() bool {
-	switch runtime.GOOS {
-	case "darwin":
-		out, _ := exec.Command(
-			"defaults", "read", "-g", "AppleInterfaceStyle",
-		).Output()
-		return strings.TrimSpace(string(out)) == "Dark"
-	case "linux":
-		out, _ := exec.Command(
-			"gsettings", "get",
-			"org.gnome.desktop.interface", "color-scheme",
-		).Output()
-		return strings.Contains(string(out), "prefer-dark")
-	case "windows":
-		out, _ := exec.Command(
-			"reg", "query",
-			`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`,
-			"/v", "AppsUseLightTheme",
-		).Output()
-		return strings.Contains(string(out), "0x0")
-	default:
-		return false
-	}
-}
 
 func clearStatusAfter(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
@@ -188,7 +151,7 @@ func newModel(
 }
 
 func (m model) Init() tea.Cmd {
-	return pollSystemTheme()
+	return nil
 }
 
 func (m model) Save() {
@@ -218,13 +181,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.root = m.root.Hide(statusPanel)
 		}
 		return m, nil
-	case systemThemeMsg:
-		if bool(msg) != m.isDark {
-			m.isDark = bool(msg)
-			m.theme = scheduled.NewTheme(m.isDark)
-			m.applyTheme()
-		}
-		return m, pollSystemTheme()
 	}
 
 	switch m.mode {
