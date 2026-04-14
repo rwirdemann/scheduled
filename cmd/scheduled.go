@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -49,6 +50,21 @@ const (
 )
 
 type clearStatusMsg struct{}
+
+type systemThemeMsg bool
+
+// pollSystemTheme returns a command that waits 5 seconds, then queries
+// the macOS system appearance and returns a systemThemeMsg.
+func pollSystemTheme() tea.Cmd {
+	return tea.Tick(5*time.Second, func(_ time.Time) tea.Msg {
+		out, _ := exec.Command(
+			"defaults", "read", "-g", "AppleInterfaceStyle",
+		).Output()
+		return systemThemeMsg(
+			strings.TrimSpace(string(out)) == "Dark",
+		)
+	})
+}
 
 func clearStatusAfter(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
@@ -150,7 +166,7 @@ func newModel(
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return pollSystemTheme()
 }
 
 func (m model) Save() {
@@ -180,6 +196,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.root = m.root.Hide(statusPanel)
 		}
 		return m, nil
+	case systemThemeMsg:
+		if bool(msg) != m.isDark {
+			m.isDark = bool(msg)
+			m.theme = scheduled.NewTheme(m.isDark)
+			m.applyTheme()
+		}
+		return m, pollSystemTheme()
 	}
 
 	switch m.mode {

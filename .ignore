@@ -1,4 +1,5 @@
 bin
+.ai
 .idea
 .claude
 .DS_Store
