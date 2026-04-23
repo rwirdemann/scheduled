@@ -3,6 +3,8 @@ package telegram
 import (
 	"log"
 	"os"
+	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rwirdemann/scheduled"
@@ -36,13 +38,34 @@ func (p *Poller) Start() {
 }
 
 func (p *Poller) poll() {
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 30
-	for update := range p.bot.GetUpdatesChan(u) {
-		if update.Message == nil {
+	cfg := tgbotapi.NewUpdate(0)
+	cfg.Timeout = 30
+	for {
+		updates, err := p.bot.GetUpdates(cfg)
+		if err != nil {
+			if !isTransientError(err) {
+				log.Printf("Telegram polling error: %v", err)
+			}
+			time.Sleep(3 * time.Second)
 			continue
 		}
-		day, name := ParseWeekday(update.Message.Text)
-		p.sendFn(scheduled.TelegramTaskMsg{Name: name, Day: day})
+		for _, update := range updates {
+			if update.UpdateID >= cfg.Offset {
+				cfg.Offset = update.UpdateID + 1
+			}
+			if update.Message == nil {
+				continue
+			}
+			day, name := ParseWeekday(update.Message.Text)
+			p.sendFn(scheduled.TelegramTaskMsg{Name: name, Day: day})
+		}
 	}
+}
+
+func isTransientError(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "connection reset by peer") ||
+		strings.Contains(s, "EOF") ||
+		strings.Contains(s, "i/o timeout") ||
+		strings.Contains(s, "no such host")
 }
