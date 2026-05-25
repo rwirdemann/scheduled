@@ -4,47 +4,30 @@ import (
 	"encoding/json"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/rwirdemann/scheduled"
 )
 
-var base string
-
-func init() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	base = home + "/.scheduled/"
-
-	// make sure the directory exists
-	err = os.MkdirAll(base, 0755)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 // TaskRepository stores tasks in a JSON file.
 type TaskRepository struct {
-	filenameTasks string
+	path string
 }
 
-// NewTaskRepository creates a new TaskRepository instance.
-func NewTaskRepository(filenameTasks string) TaskRepository {
-	if filenameTasks == "" {
-		filenameTasks = "tasks.json"
+// NewTaskRepository creates a new TaskRepository. taskPath must be the full
+// path to a .json file. The directory is created if it does not exist.
+func NewTaskRepository(path string) TaskRepository {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		log.Fatal(err)
 	}
-	return TaskRepository{
-		filenameTasks: filenameTasks,
-	}
+	return TaskRepository{path: path}
 }
 
 // LoadTasks loads and returns all tasks from the repository file.
 func (t TaskRepository) LoadTasks() []scheduled.Task {
-	file, err := os.Open(path.Join(base, t.filenameTasks))
+	file, err := os.Open(t.path)
 	if err != nil {
 		return []scheduled.Task{}
 	}
@@ -58,7 +41,7 @@ func (t TaskRepository) LoadTasks() []scheduled.Task {
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&tasks); err != nil {
-		log.Printf("Failed to decode %s: %v", t.filenameTasks, err)
+		log.Printf("Failed to decode %s: %v", t.path, err)
 		return []scheduled.Task{}
 	}
 
@@ -71,7 +54,7 @@ func (t TaskRepository) LoadTasks() []scheduled.Task {
 	return tasks.Tasks
 }
 
-// SaveTask upserts a single task in the repository file.
+// Upsert upserts a single task in the repository file.
 func (t TaskRepository) Upsert(task scheduled.Task) {
 	tasks := t.LoadTasks()
 	for i, existing := range tasks {
@@ -86,9 +69,9 @@ func (t TaskRepository) Upsert(task scheduled.Task) {
 
 // SaveTasks saves the given tasks to the repository file.
 func (t TaskRepository) SaveTasks(tasks []scheduled.Task) {
-	file, err := os.Create(path.Join(base, t.filenameTasks))
+	file, err := os.Create(t.path)
 	if err != nil {
-		log.Fatalf("Failed to create %s: %v", t.filenameTasks, err)
+		log.Fatalf("Failed to create %s: %v", t.path, err)
 	}
 	defer func(file *os.File) {
 		_ = file.Close()
@@ -102,7 +85,7 @@ func (t TaskRepository) SaveTasks(tasks []scheduled.Task) {
 
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
-		log.Fatalf("Failed to encode tasks to %s: %v", t.filenameTasks, err)
+		log.Fatalf("Failed to encode tasks to %s: %v", t.path, err)
 	}
 }
 
@@ -118,30 +101,27 @@ func (t TaskRepository) DeleteTask(id string) {
 	t.SaveTasks(filtered)
 }
 
-// Repository stores tasks and contexts in JSON files.
+// Repository stores contexts and order in JSON files derived from the task
+// file path.
 type Repository struct {
-	filenameContexts string
-	filenameOrder    string
+	contextsPath string
+	orderPath    string
 }
 
-// NewRepository creates a new Repository instance.
-func NewRepository(filenameTasks string) Repository {
-	if filenameTasks == "" {
-		filenameTasks = "tasks.json"
-	}
-	filenameContexts := strings.TrimSuffix(filenameTasks, ".json") +
-		".contexts.json"
-	filenameOrder := strings.TrimSuffix(filenameTasks, ".json") +
-		".order.json"
+// NewRepository creates a new Repository. taskPath must be the full path to
+// the tasks .json file; context and order files are placed alongside it.
+func NewRepository(path string) Repository {
+	dir := filepath.Dir(path)
+	stem := strings.TrimSuffix(filepath.Base(path), ".json")
 	return Repository{
-		filenameContexts: filenameContexts,
-		filenameOrder:    filenameOrder,
+		contextsPath: filepath.Join(dir, stem+".contexts.json"),
+		orderPath:    filepath.Join(dir, stem+".order.json"),
 	}
 }
 
 // LoadContexts loads and returns all contexts from the repository file.
 func (t Repository) LoadContexts() []scheduled.Context {
-	file, err := os.Open(path.Join(base, t.filenameContexts))
+	file, err := os.Open(t.contextsPath)
 	if err != nil {
 		return []scheduled.Context{scheduled.ContextNone}
 	}
@@ -172,8 +152,7 @@ func (t Repository) LoadContexts() []scheduled.Context {
 // LoadOrder loads task orders from the order file. If the order file does not
 // exist, it migrates positions from the tasks file and saves the result.
 func (t Repository) LoadOrder() []scheduled.TaskOrder {
-	orderPath := path.Join(base, t.filenameOrder)
-	file, err := os.Open(orderPath)
+	file, err := os.Open(t.orderPath)
 	if err != nil {
 		return []scheduled.TaskOrder{}
 	}
@@ -187,7 +166,7 @@ func (t Repository) LoadOrder() []scheduled.TaskOrder {
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&data); err != nil {
-		log.Printf("Failed to decode %s: %v", t.filenameOrder, err)
+		log.Printf("Failed to decode %s: %v", t.orderPath, err)
 		return []scheduled.TaskOrder{}
 	}
 
@@ -196,9 +175,9 @@ func (t Repository) LoadOrder() []scheduled.TaskOrder {
 
 // SaveOrder saves task orders to the order file.
 func (t Repository) SaveOrder(orders []scheduled.TaskOrder) {
-	file, err := os.Create(path.Join(base, t.filenameOrder))
+	file, err := os.Create(t.orderPath)
 	if err != nil {
-		log.Fatalf("Failed to create %s: %v", t.filenameOrder, err)
+		log.Fatalf("Failed to create %s: %v", t.orderPath, err)
 	}
 	defer func(file *os.File) {
 		_ = file.Close()
@@ -212,15 +191,15 @@ func (t Repository) SaveOrder(orders []scheduled.TaskOrder) {
 
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
-		log.Fatalf("Failed to encode orders to %s: %v", t.filenameOrder, err)
+		log.Fatalf("Failed to encode orders to %s: %v", t.orderPath, err)
 	}
 }
 
 // SaveContexts saves the given contexts to the repository file.
 func (t Repository) SaveContexts(contexts []scheduled.Context) {
-	file, err := os.Create(path.Join(base, t.filenameContexts))
+	file, err := os.Create(t.contextsPath)
 	if err != nil {
-		log.Fatalf("Failed to create %s: %v", t.filenameContexts, err)
+		log.Fatalf("Failed to create %s: %v", t.contextsPath, err)
 	}
 	defer func(file *os.File) {
 		_ = file.Close()
@@ -237,6 +216,9 @@ func (t Repository) SaveContexts(contexts []scheduled.Context) {
 
 	encoder := json.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
-		log.Fatalf("Failed to encode contexts to %s: %v", t.filenameContexts, err)
+		log.Fatalf(
+			"Failed to encode contexts to %s: %v",
+			t.contextsPath, err,
+		)
 	}
 }

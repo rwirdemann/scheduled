@@ -18,7 +18,17 @@ Enter ? to toggle help.
 
 ### Where are my tasks stored?
 
-Tasks and contexts are stored as JSON in `$HOME/.scheduled`. The default name of the task file is `$HOME/.scheduled/tasks.json` , the name of the context file is `$HOME/.scheduled/tasks.contexts.json`. The task file name can be overriden by CLI flag `-f`. The name of the context file is derived from the tasks file. Thus, every tasks file has a dedicated set of accociated contexts. 
+Tasks and contexts are stored as JSON in `$HOME/.scheduled`. The default
+tasks file is `$HOME/.scheduled/tasks.json`. The full path can be overridden
+with the `-d` flag, which must point to a `.json` file:
+
+```
+scheduled -d /path/to/mywork.json
+```
+
+Context and order files are placed alongside the tasks file and named after
+it (e.g. `mywork.contexts.json`, `mywork.order.json`). Every tasks file
+therefore has its own dedicated set of contexts.
 
 The task and context files are saved when the application exits and every 15 seconds in the background.
 

@@ -50,7 +50,6 @@ const (
 
 type clearStatusMsg struct{}
 
-
 func clearStatusAfter(d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
 		return clearStatusMsg{}
@@ -71,8 +70,7 @@ type taskRepository interface {
 }
 
 type model struct {
-	root  panel.Model
-	focus int
+	root panel.Model
 
 	board *board.Model
 
@@ -434,10 +432,10 @@ func (m model) deleteContext() (model, error) {
 	selected := m.contextList.SelectedItem()
 	c := selected.(scheduled.Context)
 	if c.ID == scheduled.ContextNone.ID {
-		return m, fmt.Errorf("Context '%s' can not be deleted", scheduled.ContextNone.Name)
+		return m, fmt.Errorf("context '%s' can not be deleted", scheduled.ContextNone.Name)
 	}
 	if m.board.IsContextUsed(c) {
-		return m, fmt.Errorf("Context '%s' is beeing used", c.Name)
+		return m, fmt.Errorf("context '%s' is beeing used", c.Name)
 	}
 
 	i := m.contextList.Index()
@@ -455,12 +453,12 @@ func (m model) showStatusMessage(s string) (model, tea.Cmd) {
 
 func (m model) addContext(name string) (model, error) {
 	if name == "" {
-		return m, errors.New("Context must not be empty")
+		return m, errors.New("context must not be empty")
 	}
 	maxID := 1
 	for _, c := range m.contexts() {
 		if strings.EqualFold(c.Name, name) {
-			return m, fmt.Errorf("Context '%s' does already exist", name)
+			return m, fmt.Errorf("context '%s' does already exist", name)
 		}
 		if c.ID > maxID {
 			maxID = c.ID
@@ -680,7 +678,11 @@ func createModel(taskRepository taskRepository, repository repository) model {
 func main() {
 	_ = godotenv.Load(filepath.Join(os.Getenv("HOME"), ".scheduled", ".env"))
 
-	tasksFile := flag.String("f", "tasks.json", "tasks file to use")
+	home, _ := os.UserHomeDir()
+	defaultPath := filepath.Join(home, ".scheduled", "tasks.json")
+	repositoryPath := flag.String(
+		"d", defaultPath, "full path to tasks file (<name>.json)",
+	)
 	showVersion := flag.Bool("version", false, "show version")
 	flag.Parse()
 
@@ -689,8 +691,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	repo := file.NewRepository(*tasksFile)
-	taskRepo := file.NewTaskRepository(*tasksFile)
+	if *repositoryPath == "" {
+		fmt.Fprintln(os.Stderr, "error: -d must be given")
+		os.Exit(1)
+	}
+	if !strings.HasSuffix(*repositoryPath, ".json") {
+		fmt.Fprintln(os.Stderr, "error: -d must end in <name>.json")
+		os.Exit(1)
+	}
+
+	repo := file.NewRepository(*repositoryPath)
+	taskRepo := file.NewTaskRepository(*repositoryPath)
 	m := createModel(taskRepo, repo)
 
 	p := tea.NewProgram(m)
