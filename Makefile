@@ -38,26 +38,29 @@ checksums:
 test:
 	go test ./...
 
+INSTALL_DIR := $(HOME)/.local/bin
+
 install: build-all
+	@mkdir -p $(INSTALL_DIR)
 ifeq ($(shell uname),Darwin)
 ifeq ($(shell uname -m),arm64)
-	@echo "Installing darwin ARM64 binary to ${GOROOT}/bin/scheduled"
-	@cp bin/scheduled-darwin-arm64 ${GOROOT}/bin/scheduled
+	@echo "Installing darwin ARM64 binary to $(INSTALL_DIR)/scheduled"
+	@cp bin/scheduled-darwin-arm64 $(INSTALL_DIR)/scheduled
 else
-	@echo "Installing darwin AMD64 binary to ${GOROOT}/bin/scheduled"
-	@cp bin/scheduled-darwin-amd64 ${GOROOT}/bin/scheduled
+	@echo "Installing darwin AMD64 binary to $(INSTALL_DIR)/scheduled"
+	@cp bin/scheduled-darwin-amd64 $(INSTALL_DIR)/scheduled
 endif
 else ifeq ($(shell uname),Linux)
 ifeq ($(shell uname -m),aarch64)
-	@echo "Installing Linux ARM64 binary to ${GOROOT}/bin/scheduled"
-	@cp bin/scheduled-linux-arm64 ${GOROOT}/bin/scheduled
+	@echo "Installing Linux ARM64 binary to $(INSTALL_DIR)/scheduled"
+	@cp bin/scheduled-linux-arm64 $(INSTALL_DIR)/scheduled
 else
-	@echo "Installing Linux AMD64 binary to ${GOROOT}/bin/scheduled"
-	@cp bin/scheduled-linux-amd64 ${GOROOT}/bin/scheduled
+	@echo "Installing Linux AMD64 binary to $(INSTALL_DIR)/scheduled"
+	@cp bin/scheduled-linux-amd64 $(INSTALL_DIR)/scheduled
 endif
 else
-	@echo "Installing Windows binary to ${GOROOT}/bin/scheduled.exe"
-	@cp bin/scheduled-windows-amd64.exe ${GOROOT}/bin/scheduled.exe
+	@echo "Installing Windows binary to $(INSTALL_DIR)/scheduled.exe"
+	@cp bin/scheduled-windows-amd64.exe $(INSTALL_DIR)/scheduled.exe
 endif
 
 .PHONY: build-darwin build-darwin-arm64 build-linux build-linux-arm64 build-windows build-all checksums test install
