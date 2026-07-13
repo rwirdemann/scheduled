@@ -30,12 +30,13 @@ import (
 var version = "dev"
 
 const (
-	panelEdit        = 40
-	contextPanel     = 60
-	leftPanel        = 70
-	contextEditPanel = 80
-	statusPanel      = 90
-	footerPanel      = 100
+	panelEdit          = 40
+	contextPanel       = 60
+	leftPanel          = 70
+	contextEditPanel   = 80
+	contextFooterPanel = 85
+	statusPanel        = 90
+	footerPanel        = 100
 )
 
 type mode int
@@ -531,9 +532,18 @@ func renderPanel(m tea.Model, panelID int, w, h int) string {
 
 func renderContextPanel(m tea.Model, _ int, w, h int) string {
 	model := m.(model)
-	model.contextList.SetSize(w, h-4)
-	fhv := model.help.FullHelpView(model.contextViewKeys.FullHelp())
-	return model.contextList.View() + "\n" + fhv
+	model.contextList.SetSize(w, h)
+	return model.contextList.View()
+}
+
+// renderContextFooter shows the key binding for closing the context
+// panel.
+func renderContextFooter(m tea.Model, _ int, _, _ int) string {
+	model := m.(model)
+	k := model.help.Styles.FullKey
+	d := model.help.Styles.FullDesc
+	h := model.contextViewKeys.CloseView.Help()
+	return "  " + k.Render(h.Key) + " " + d.Render(h.Desc)
 }
 
 func renderContextEditPanel(m tea.Model, _ int, _, _ int) string {
@@ -663,9 +673,15 @@ func createModel(taskRepository taskRepository, repository repository) model {
 		WithVisible(false).
 		WithContent(renderContextEditPanel).
 		WithMaxHeight(6)
+	contextFooterPanel := panel.New().
+		WithId(contextFooterPanel).
+		WithRatio(18).
+		WithContent(renderContextFooter).
+		WithMaxHeight(1)
 	leftPanel = leftPanel.
 		Append(contextPanel).
-		Append(contextEditPanel)
+		Append(contextEditPanel).
+		Append(contextFooterPanel)
 
 	// finally, the root panel
 	rootPanel := panel.New().WithRatio(100).WithLayout(panel.LayoutDirectionHorizontal).

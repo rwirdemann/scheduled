@@ -1,3 +1,4 @@
 /bin
 .env
 /.full-review
+.DS_Store
